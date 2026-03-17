@@ -1,0 +1,184 @@
+import { useInterviewStore } from '../store/interviewStore';
+
+const WS_URL = 'ws://localhost:3002';
+
+export class WebSocketClient {
+  private ws: WebSocket | null = null;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+
+  connect(sessionId: string, isCandidate: boolean = true): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        this.ws = new WebSocket(WS_URL);
+
+        this.ws.onopen = () => {
+          console.log('WebSocket connected');
+          this.send({
+            type: 'join_session',
+            payload: { sessionId, isCandidate },
+            sessionId,
+            timestamp: Date.now(),
+          });
+          resolve();
+        };
+
+        this.ws.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            this.handleMessage(message);
+          } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+          }
+        };
+
+        this.ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          reject(error);
+        };
+
+        this.ws.onclose = () => {
+          console.log('WebSocket disconnected');
+          this.attemptReconnect();
+        };
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  private handleMessage(message: any) {
+    const { addFeedback, acknowledgeFeedback, addTranscript, updateMetrics, endSession } = useInterviewStore.getState();
+
+    switch (message.type) {
+      case 'session_joined':
+        useInterviewStore.getState().joinSession();
+        break;
+
+      case 'feedback':
+        addFeedback(message.payload);
+        break;
+
+      case 'session_update':
+        // Handle session status updates
+        break;
+
+      case 'error':
+        console.error('WebSocket error:', message.payload);
+        break;
+    }
+  }
+
+  private attemptReconnect() {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+    }
+
+    this.reconnectTimeout = setTimeout(() => {
+      const { sessionId } = useInterviewStore.getState();
+      if (sessionId) {
+        console.log('Attempting to reconnect...');
+        this.connect(sessionId, true).catch(console.error);
+      }
+    }, 3000);
+  }
+
+  sendCodeUpdate(code: string, language: string) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    const { sessionId } = useInterviewStore.getState();
+    if (!sessionId) return;
+
+    this.ws.send(
+      JSON.stringify({
+        type: 'code_update',
+        payload: { code, language },
+        sessionId,
+        timestamp: Date.now(),
+      })
+    );
+  }
+
+  sendAudioSegment(transcript: string) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    const { sessionId } = useInterviewStore.getState();
+    if (!sessionId) return;
+
+    this.ws.send(
+      JSON.stringify({
+        type: 'audio_segment',
+        payload: {
+          timestamp: Date.now(),
+          transcript,
+          duration: 0,
+        },
+        sessionId,
+        timestamp: Date.now(),
+      })
+    );
+  }
+
+  sendScreenFrame(hasCodeChanges: boolean) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    const { sessionId } = useInterviewStore.getState();
+    if (!sessionId) return;
+
+    this.ws.send(
+      JSON.stringify({
+        type: 'screen_frame',
+        payload: {
+          timestamp: Date.now(),
+          hasCodeChanges,
+        },
+        sessionId,
+        timestamp: Date.now(),
+      })
+    );
+  }
+
+  requestFeedback(reason: string) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    const { sessionId } = useInterviewStore.getState();
+    if (!sessionId) return;
+
+    this.ws.send(
+      JSON.stringify({
+        type: 'request_feedback',
+        payload: { reason },
+        sessionId,
+        timestamp: Date.now(),
+      })
+    );
+  }
+
+  acknowledgeFeedback(feedbackId: string) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    const { sessionId } = useInterviewStore.getState();
+    if (!sessionId) return;
+
+    this.ws.send(
+      JSON.stringify({
+        type: 'acknowledge_feedback',
+        payload: { feedbackId },
+        sessionId,
+        timestamp: Date.now(),
+      })
+    );
+  }
+
+  endSession() {
+    if (this.ws) {
+      this.ws.close();
+    }
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+    }
+    this.ws = null;
+    useInterviewStore.getState().endSession();
+  }
+}
+
+export const wsClient = new WebSocketClient();
