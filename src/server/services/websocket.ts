@@ -20,7 +20,9 @@ import {
 } from '../../shared/websocket-contract';
 
 interface ClientData {
+  clientId: string;
   sessionId: string;
+  hasJoinedSession: boolean;
   isCandidate: boolean;
   lastActivity: number;
 }
@@ -106,7 +108,9 @@ export class WebSocketService {
     // Register client immediately with pending state
     // They will update their sessionId when they send join_session
     this.clients.set(ws, {
-      sessionId: clientId, // Temporary until join_session
+      clientId,
+      sessionId: clientId,
+      hasJoinedSession: false,
       isCandidate: false,
       lastActivity: Date.now(),
     });
@@ -152,16 +156,50 @@ export class WebSocketService {
         return;
       }
 
+      if (!message || typeof message.type !== 'string') {
+        this.send(ws, {
+          type: 'error',
+          payload: { message: 'Invalid message format' },
+          sessionId: clientData.clientId,
+          timestamp: Date.now(),
+        });
+        return;
+      }
+
       // Update last activity
       clientData.lastActivity = Date.now();
 
       // For non-join messages, verify the client has joined a session
       if (message.type !== 'join_session') {
+        // Backward compatibility: treat sockets as joined if they are already bound to an existing session.
+        const hasJoinedSession =
+          clientData.hasJoinedSession || this.sessions.has(clientData.sessionId);
+
+        if (!hasJoinedSession) {
+          this.send(ws, {
+            type: 'error',
+            payload: { message: 'Must join a session first. Send join_session message.' },
+            sessionId: clientData.clientId,
+            timestamp: Date.now(),
+          });
+          return;
+        }
+
         const session = this.sessions.get(clientData.sessionId);
         if (!session) {
           this.send(ws, {
             type: 'error',
-            payload: { message: 'Must join a session first. Send join_session message.' },
+            payload: { message: 'Session not found. Rejoin session.' },
+            sessionId: clientData.sessionId,
+            timestamp: Date.now(),
+          });
+          return;
+        }
+
+        if (typeof message.sessionId === 'string' && message.sessionId !== clientData.sessionId) {
+          this.send(ws, {
+            type: 'error',
+            payload: { message: 'Session mismatch for this connection.' },
             sessionId: clientData.sessionId,
             timestamp: Date.now(),
           });
@@ -214,6 +252,16 @@ export class WebSocketService {
     payload: { sessionId: string; isCandidate: boolean },
     clientData: ClientData
   ) {
+    if (!payload || typeof payload.sessionId !== 'string' || payload.sessionId.trim().length === 0) {
+      this.send(ws, {
+        type: 'error',
+        payload: { message: 'Invalid join_session payload: sessionId is required.' },
+        sessionId: clientData.clientId,
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
     const { sessionId, isCandidate } = payload;
 
     // Create or retrieve session
@@ -224,6 +272,7 @@ export class WebSocketService {
 
     clientData.sessionId = sessionId;
     clientData.isCandidate = isCandidate;
+    clientData.hasJoinedSession = true;
 
     // Update session status if candidate joins
     if (isCandidate) {

@@ -10,6 +10,7 @@ import { audioPlaybackQueue } from '../services/AudioPlaybackQueue';
 import { AudioRecorderService } from '../services/AudioRecorderService';
 import { debounce } from 'lodash';
 import { AiVisualizer } from '../components/AiVisualizer';
+import { Card, Button } from '../components/primitives';
 
 function InterviewRoom() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -283,22 +284,24 @@ function InterviewRoom() {
             </button>
 
             {/* Request Help */}
-            <button
+            <Button
               onClick={() => requestFeedback('Need a hint')}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              variant="primary"
+              size="sm"
             >
               <AlertCircle className="w-4 h-4" />
               <span>Request Hint</span>
-            </button>
+            </Button>
 
             {/* End Interview */}
-            <button
+            <Button
               onClick={handleEndInterview}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              variant="destructive"
+              size="sm"
             >
               <StopCircle className="w-4 h-4" />
               <span>End Interview</span>
-            </button>
+            </Button>
           </div>
         </div>
       </header>
@@ -308,7 +311,7 @@ function InterviewRoom() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Code Editor */}
           <div className="lg:col-span-2">
-            <div className="bg-gray-800 rounded-xl overflow-hidden shadow-xl">
+            <Card variant="primary" className="overflow-hidden p-0">
               <div className="bg-gray-700 px-4 py-2 flex items-center justify-between">
                 <span className="text-sm text-gray-300">solution.ts</span>
                 <span className="text-xs text-gray-400">TypeScript</span>
@@ -327,7 +330,7 @@ function InterviewRoom() {
                   automaticLayout: true,
                 }}
               />
-            </div>
+            </Card>
           </div>
 
           {/* Sidebar */}
@@ -336,7 +339,7 @@ function InterviewRoom() {
             <AiVisualizer isSpeaking={isAISpeaking} />
 
             {/* Feedback Panel */}
-            <div className="bg-gray-800 rounded-xl p-4 shadow-xl">
+            <Card variant="primary" className="p-4">
               <div className="flex items-center gap-2 mb-4">
                 <MessageSquare className="w-5 h-5 text-blue-400" />
                 <h2 className="text-lg font-semibold text-white">Coach Feedback</h2>
@@ -373,10 +376,10 @@ function InterviewRoom() {
                   No feedback yet. Keep working!
                 </p>
               )}
-            </div>
+            </Card>
 
             {/* Metrics Panel */}
-            <div className="bg-gray-800 rounded-xl p-4 shadow-xl">
+            <Card variant="primary" className="p-4">
               <h2 className="text-lg font-semibold text-white mb-4">Session Stats</h2>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-gray-300">
@@ -396,11 +399,11 @@ function InterviewRoom() {
                   <span>{sessionMetrics.feedbackCount}</span>
                 </div>
               </div>
-            </div>
+            </Card>
 
             {/* Screen Share Preview */}
             {isSharing && (
-              <div className="bg-gray-800 rounded-xl p-4 shadow-xl">
+              <Card variant="primary" className="p-4">
                 <div className="flex items-center gap-2 mb-4">
                   <Monitor className="w-5 h-5 text-green-400" />
                   <h2 className="text-lg font-semibold text-white">Screen Share</h2>
@@ -414,7 +417,7 @@ function InterviewRoom() {
                     className="w-full h-full object-contain"
                   />
                 </div>
-              </div>
+              </Card>
             )}
 
             {/* Share Error Message */}

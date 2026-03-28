@@ -1,9 +1,10 @@
 ---
 id: TASK-6.4
 title: 'Task 6.1.4: [Impl] Implement System Prompt Factory'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-03-28 07:41'
+updated_date: '2026-03-28 15:47'
 labels:
   - tdd-impl
   - backend

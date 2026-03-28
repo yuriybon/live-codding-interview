@@ -1,9 +1,10 @@
 ---
 id: TASK-6.2
 title: 'Task 6.1.2: [Impl] Create Configurable Session Route'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:40'
+updated_date: '2026-03-28 15:41'
 labels:
   - tdd-impl
   - backend
@@ -21,5 +22,5 @@ priority: high
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `POST /api/sessions` accepts `language` and `interviewType` fields, stores them in the session object, and returns the customized `sessionId`.
+- [x] #1 `POST /api/sessions` accepts `language` and `interviewType` fields, stores them in the session object, and returns the customized `sessionId`.
 <!-- AC:END -->

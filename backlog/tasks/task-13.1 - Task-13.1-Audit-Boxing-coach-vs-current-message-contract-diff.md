@@ -1,9 +1,10 @@
 ---
 id: TASK-13.1
 title: 'Task 13.1: [Audit] Boxing-coach vs current message contract diff'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 14:19'
+updated_date: '2026-03-28 15:33'
 labels:
   - websocket
   - parity
@@ -25,5 +26,11 @@ Produce a field-by-field diff between boxing-coach and current websocket payload
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A single contract-diff artifact exists and each mismatch is mapped to an owning implementation task.
+- [x] #1 A single contract-diff artifact exists and each mismatch is mapped to an owning implementation task.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Created contract-diff artifact at backlog/docs/doc-13 - Task-13.1-Boxing-Coach-vs-LCI-WebSocket-Contract-Diff.md with mismatch-to-owner mapping (MM-01..MM-09).
+<!-- SECTION:NOTES:END -->

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { NavBar } from '../components/NavBar';
+import { Card, Badge, Button, SectionHeader } from '../components/primitives';
 
 function LandingPage() {
   const navigate = useNavigate();
@@ -70,15 +71,15 @@ function LandingPage() {
 
       <div className="max-w-2xl w-full mt-16 sm:mt-0">
         <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold text-white mb-4">
+          <SectionHeader level={1} className="mb-4">
             AI Interview Simulator
-          </h1>
+          </SectionHeader>
           <p className="text-xl text-gray-300">
             Practice coding interviews with real-time AI coaching and feedback
           </p>
         </div>
 
-        <div className="bg-gray-800 rounded-2xl p-8 shadow-2xl min-h-[250px] flex flex-col justify-center">
+        <Card variant="elevated" className="min-h-[250px] flex flex-col justify-center">
           {isLoading ? (
             <div className="flex justify-center items-center h-full">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -86,7 +87,7 @@ function LandingPage() {
           ) : !isAuthenticated ? (
             <div className="space-y-6 flex flex-col items-center">
               <div className="text-center mb-4">
-                <h2 className="text-2xl font-semibold text-white">Welcome</h2>
+                <SectionHeader level={2}>Welcome</SectionHeader>
                 <p className="text-gray-400 mt-2">Sign in to start your practice session</p>
               </div>
               
@@ -120,9 +121,9 @@ function LandingPage() {
                     <p className="text-white font-medium">Full Stack Engineering Interview</p>
                     <p className="text-sm text-gray-400">Duration: 45-60 mins</p>
                   </div>
-                  <div className="px-3 py-1 bg-blue-900/30 text-blue-300 rounded text-sm font-medium">
+                  <Badge status="info">
                     React + Node.js
-                  </div>
+                  </Badge>
                 </div>
               </div>
 
@@ -132,38 +133,40 @@ function LandingPage() {
                 </div>
               )}
 
-              <button
+              <Button
                 onClick={startInterview}
                 disabled={starting}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-semibold py-4 px-6 rounded-lg transition-colors"
+                variant="primary"
+                size="lg"
+                className="w-full"
               >
                 {starting ? 'Initializing Session...' : 'Start Interview Session'}
-              </button>
+              </Button>
             </div>
           )}
-        </div>
+        </Card>
 
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gray-800/50 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-white mb-2">Real-time Coaching</h3>
+          <Card variant="secondary">
+            <SectionHeader level={3} className="mb-2">Real-time Coaching</SectionHeader>
             <p className="text-gray-400 text-sm">
               Get instant feedback when you're stuck or missing key signals
             </p>
-          </div>
+          </Card>
 
-          <div className="bg-gray-800/50 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-white mb-2">Voice Recognition</h3>
+          <Card variant="secondary">
+            <SectionHeader level={3} className="mb-2">Voice Recognition</SectionHeader>
             <p className="text-gray-400 text-sm">
               Speak your reasoning aloud and get feedback on communication
             </p>
-          </div>
+          </Card>
 
-          <div className="bg-gray-800/50 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-white mb-2">Comprehensive Assessment</h3>
+          <Card variant="secondary">
+            <SectionHeader level={3} className="mb-2">Comprehensive Assessment</SectionHeader>
             <p className="text-gray-400 text-sm">
               Receive detailed feedback on technical and communication skills
             </p>
-          </div>
+          </Card>
         </div>
       </div>
     </div>
