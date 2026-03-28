@@ -4,6 +4,7 @@ import Editor from '@monaco-editor/react';
 import { Mic, MicOff, Eye, EyeOff, MessageSquare, AlertCircle, Clock, StopCircle } from 'lucide-react';
 import { useInterviewStore } from '../store/interviewStore';
 import { wsClient } from '../services/websocketClient';
+import { NavBar } from '../components/NavBar';
 
 function InterviewRoom() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -135,6 +136,9 @@ function InterviewRoom() {
 
   return (
     <div className="min-h-screen bg-gray-900">
+      {/* Navigation Bar with User Avatar */}
+      <NavBar />
+
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">

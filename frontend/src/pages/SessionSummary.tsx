@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, Star, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react';
+import { NavBar } from '../components/NavBar';
 
 interface SummaryData {
   session: any;
@@ -64,6 +65,7 @@ function SessionSummary() {
 
   return (
     <div className="min-h-screen bg-gray-900">
+      <NavBar />
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center gap-4">

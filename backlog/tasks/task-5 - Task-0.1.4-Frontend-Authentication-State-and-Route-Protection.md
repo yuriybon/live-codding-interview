@@ -1,15 +1,16 @@
 ---
 id: TASK-5
 title: 'Task 0.1.4: [Frontend] Authentication State and Route Protection'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:17'
-updated_date: '2026-03-28 07:20'
+updated_date: '2026-03-28 11:54'
 labels:
   - frontend
   - auth
   - routing
 dependencies:
+  - TASK-9.2.3
   - TASK-4
 priority: high
 ---
@@ -32,6 +33,6 @@ The application must maintain an awareness of the user's logged-in state across 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Frontend Zustand store correctly manages user authentication state (logged in, user profile data).
-- [ ] #2 Protected routes (like the Interview Room) redirect to the login page if the user is not authenticated.
+- [x] #1 Frontend Zustand store correctly manages user authentication state (logged in, user profile data).
+- [x] #2 Protected routes (like the Interview Room) redirect to the login page if the user is not authenticated.
 <!-- AC:END -->

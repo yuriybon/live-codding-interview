@@ -9,6 +9,7 @@ export const env = {
   
   // Google Cloud Platform Configuration
   GCP_PROJECT_ID: process.env.GCP_PROJECT_ID || '',
+  GOOGLE_CLOUD_PROJECT: process.env.GOOGLE_CLOUD_PROJECT || process.env.GCP_PROJECT_ID || '',
   GCP_LOCATION: process.env.GCP_LOCATION || 'us-central1',
   
   // Vertex AI / Gemini Configuration
@@ -30,11 +31,13 @@ export const env = {
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
   GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001/auth/google/callback',
 
-  // JWT Secret
+  // Session & JWT Configuration
+  SESSION_SECRET: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'fallback-secret-for-development-only',
   JWT_SECRET: process.env.JWT_SECRET || 'fallback-secret-for-development-only',
 
-  // Frontend URL
+  // Frontend & Application URL
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+  APP_URL: process.env.APP_URL || '',
   
   // Validation
   validate() {
