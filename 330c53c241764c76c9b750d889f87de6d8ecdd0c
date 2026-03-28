@@ -1,0 +1,25 @@
+frontend/src/components/SessionConfigModal.tsx
+  e41ec2911ae016dc 1-60
+frontend/src/pages/LandingPage.tsx
+  e41ec2911ae016dc 7,16,47-51,58-59,70,145,157-163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "330c53c241764c76c9b750d889f87de6d8ecdd0c",
+  "prompts": {
+    "e41ec2911ae016dc": {
+      "agent_id": {
+        "tool": "gemini",
+        "id": "3b376078-b74d-462a-8502-9a8245a69d81",
+        "model": "gemini-3.1-pro-preview"
+      },
+      "human_author": "Yurii Bondar <Yurii_Bondar@genpt.com>",
+      "messages": [],
+      "total_additions": 79,
+      "total_deletions": 3,
+      "accepted_lines": 79,
+      "overriden_lines": 0
+    }
+  }
+}
