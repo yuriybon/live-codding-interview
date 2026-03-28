@@ -1,4 +1,5 @@
 import { useInterviewStore } from '../store/interviewStore';
+import { audioPlaybackQueue } from './AudioPlaybackQueue';
 
 const WS_URL = 'ws://localhost:3002';
 
@@ -84,18 +85,16 @@ export class WebSocketClient {
         console.log('[WebSocket] AI audio chunk received:', message.payload.audioData.length, 'bytes',
                     'isFinal:', message.payload.isFinal);
 
-        // TODO: Queue for Web Audio API playback (Task 1.4.2)
-        // For now, we log that audio was received
-        // Future: this.audioPlaybackQueue.enqueue(message.payload.audioData);
+        // Queue for Web Audio API playback
+        audioPlaybackQueue.enqueue(message.payload.audioData);
         break;
 
       case 'model_interruption':
         // AI was interrupted by user
         console.log('[WebSocket] AI interrupted:', message.payload.reason);
 
-        // TODO: Stop audio playback and clear queue (Task 1.4.2)
-        // this.audioPlaybackQueue.clear();
-        // this.audioPlaybackQueue.stop();
+        // Stop audio playback and clear queue
+        audioPlaybackQueue.stop();
         break;
 
       case 'model_tool_call':
