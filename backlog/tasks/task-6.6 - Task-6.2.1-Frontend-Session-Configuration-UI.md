@@ -1,9 +1,10 @@
 ---
 id: TASK-6.6
 title: 'Task 6.2.1: [Frontend] Session Configuration UI'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-03-28 07:42'
+updated_date: '2026-03-28 15:52'
 labels:
   - frontend
   - ui

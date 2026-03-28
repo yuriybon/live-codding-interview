@@ -49,7 +49,7 @@ export class GeminiLiveClient extends EventEmitter {
    *
    * @throws Error if authentication fails or connection cannot be established
    */
-  async connect(): Promise<void> {
+  async connect(systemInstructionText?: string): Promise<void> {
     try {
       // Step 1: Fetch access token for authentication
       const accessToken = await this.auth.getAccessToken();
@@ -71,7 +71,7 @@ export class GeminiLiveClient extends EventEmitter {
       await this.waitForConnection();
 
       // Step 4: Send initial setup message
-      await this.sendSetupMessage();
+      await this.sendSetupMessage(systemInstructionText);
 
       this.connected = true;
       this.emit('connected');
