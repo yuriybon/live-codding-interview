@@ -1,10 +1,10 @@
 ---
 id: TASK-3
 title: 'Task 0.1.2: [Impl] Handle Google OAuth2 token exchange'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:16'
-updated_date: '2026-03-28 07:20'
+updated_date: '2026-03-28 10:19'
 labels:
   - tdd-impl
   - auth
@@ -35,6 +35,6 @@ Implement the actual OAuth2 token exchange logic to pass the previously written 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Express route `/auth/google/callback` correctly uses `OAuth2Client` to exchange an authorization code for an ID token and access token, passing the failure test when misconfigured and a new success test when configured properly.
-- [ ] #2 The user's email and profile picture are extracted from the token payload.
+- [x] #1 Express route `/auth/google/callback` correctly uses `OAuth2Client` to exchange an authorization code for an ID token and access token, passing the failure test when misconfigured and a new success test when configured properly.
+- [x] #2 The user's email and profile picture are extracted from the token payload.
 <!-- AC:END -->

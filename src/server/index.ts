@@ -1,8 +1,10 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import { wsService } from './services/websocket';
 import sessionRoutes from './routes/sessions';
+import authRoutes from './routes/auth';
 
 const app = express();
 
@@ -10,6 +12,7 @@ const app = express();
 app.use(cors({ origin: env.ALLOWED_ORIGINS, credentials: true, }));
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Request logging 
 app.use((req, res, next) => {
@@ -18,6 +21,7 @@ app.use((req, res, next) => {
 });
 
 // Routes 
+app.use('/auth', authRoutes);
 app.use('/api/sessions', sessionRoutes);
 
 // Health check endpoint 
