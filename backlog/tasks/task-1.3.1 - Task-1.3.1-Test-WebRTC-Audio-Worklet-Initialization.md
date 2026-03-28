@@ -1,9 +1,10 @@
 ---
 id: TASK-1.3.1
 title: 'Task 1.3.1: [Test] WebRTC Audio Worklet Initialization'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-03-28 07:22'
+updated_date: '2026-03-28 12:35'
 labels:
   - tdd-test
   - frontend
