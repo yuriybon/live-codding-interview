@@ -1,15 +1,16 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { env } from '../config/env';
 import { v4 as uuidv4 } from 'uuid';
-import { 
-  InterviewSession, 
-  Feedback, 
-  TranscriptSegment, 
+import {
+  InterviewSession,
+  Feedback,
+  TranscriptSegment,
   AnalysisResult,
   AudioSegment,
-  ScreenCaptureFrame 
+  ScreenCaptureFrame
 } from '../types';
 import { vertexAI } from './vertex-ai';
+import { GeminiLiveClient } from './gemini-live';
 
 interface ClientData {
   sessionId: string;
@@ -32,10 +33,17 @@ export class WebSocketService {
   private clients: Map<WebSocket, ClientData> = new Map();
   private sessions: Map<string, InterviewSession> = new Map();
   private feedbackQueue: Map<string, Feedback[]> = new Map();
+  private geminiClient: GeminiLiveClient | null = null;
 
   constructor(port: number) {
     this.wss = new WebSocketServer({ port });
     this.setupEventHandlers();
+
+    // Only setup Gemini client in non-test environments
+    if (env.NODE_ENV !== 'test') {
+      this.setupGeminiClient();
+    }
+
     console.log(`WebSocket server started on port ${port}`);
   }
 
@@ -47,6 +55,41 @@ export class WebSocketService {
     this.wss.on('error', (error) => {
       console.error('WebSocket server error:', error);
     });
+  }
+
+  private async setupGeminiClient() {
+    // Skip setup if geminiClient already exists (e.g., injected for testing)
+    if (this.geminiClient) {
+      return;
+    }
+
+    try {
+      this.geminiClient = new GeminiLiveClient();
+
+      // Set up event handlers for Gemini client
+      this.geminiClient.on('connected', () => {
+        console.log('[WebSocketService] Connected to Gemini Live API');
+      });
+
+      this.geminiClient.on('disconnected', () => {
+        console.log('[WebSocketService] Disconnected from Gemini Live API');
+      });
+
+      this.geminiClient.on('message', (message) => {
+        // Handle responses from Gemini and broadcast to clients
+        this.handleGeminiMessage(message);
+      });
+
+      this.geminiClient.on('error', (error) => {
+        console.error('[WebSocketService] Gemini client error:', error);
+      });
+
+      // Connect to Gemini Live API
+      await this.geminiClient.connect();
+    } catch (error) {
+      console.error('[WebSocketService] Failed to connect to Gemini:', error);
+      // Continue without Gemini - service can still handle local operations
+    }
   }
 
   private handleConnection(ws: WebSocket) {
@@ -229,6 +272,14 @@ export class WebSocketService {
       session.transcriptSegments.push(segment);
       session.transcriptSegments = session.transcriptSegments.slice(-50);
     }
+
+    // Route audio to Gemini Live API
+    if (this.geminiClient && this.geminiClient.isConnected() && payload.audioData) {
+      const base64Audio = Buffer.isBuffer(payload.audioData)
+        ? payload.audioData.toString('base64')
+        : payload.audioData;
+      this.geminiClient.sendAudio(base64Audio);
+    }
   }
 
   private async handleScreenFrame(
@@ -242,6 +293,14 @@ export class WebSocketService {
     // Update code activity metrics
     if (payload.hasCodeChanges) {
       session.metrics.codeLinesWritten++;
+    }
+
+    // Route screen frame to Gemini Live API
+    if (this.geminiClient && this.geminiClient.isConnected() && payload.imageData) {
+      const base64Image = Buffer.isBuffer(payload.imageData)
+        ? payload.imageData.toString('base64')
+        : payload.imageData;
+      this.geminiClient.sendVideoFrame(base64Image);
     }
   }
 
@@ -282,48 +341,14 @@ export class WebSocketService {
     // Increment hints requested
     session.metrics.hintsRequested++;
 
-    // Get recent transcript
-    const recentTranscript = session.transcriptSegments
-      ?.slice(-5)
-      .map(t => t.text) || [];
+    // Route text request to Gemini Live API
+    if (this.geminiClient && this.geminiClient.isConnected()) {
+      const requestText = `The candidate is requesting help: ${payload.reason}`;
+      this.geminiClient.sendText(requestText);
+    }
 
-    // Get recent code
-    const recentCode = session.codeSnippets?.slice(-1)[0]?.content || '';
-
-    // Generate feedback using Vertex AI
-    const feedbackContent = await vertexAI.generateFeedback(
-      {
-        type: 'manual',
-        details: payload.reason,
-      },
-      {
-        transcript: recentTranscript,
-        code: recentCode,
-        metrics: session.metrics,
-      }
-    );
-
-    // Create feedback object
-    const feedback: Feedback = {
-      id: uuidv4(),
-      sessionId: clientData.sessionId,
-      type: 'hint',
-      content: feedbackContent,
-      timestamp: new Date(),
-      trigger: { type: 'manual', details: payload.reason },
-      acknowledged: false,
-    };
-
-    session.feedback.push(feedback);
-    session.metrics.feedbackCount++;
-
-    // Send feedback to candidate
-    this.send(ws, {
-      type: 'feedback',
-      payload: feedback,
-      sessionId: clientData.sessionId,
-      timestamp: Date.now(),
-    });
+    // Note: The response will come through handleGeminiMessage
+    // and will be broadcast to the client as feedback
   }
 
   private handleFeedbackAcknowledgement(
@@ -357,6 +382,27 @@ export class WebSocketService {
 
 
 
+  /**
+   * Handles messages received from Gemini Live API
+   * and broadcasts them to connected clients
+   */
+  private handleGeminiMessage(message: any) {
+    // Extract text or audio response from Gemini
+    // The message format follows Gemini Live API structure
+
+    // Broadcast to all connected clients
+    // For now, we'll broadcast raw Gemini messages
+    // In production, you might transform these into app-specific formats
+    this.clients.forEach((clientData, ws) => {
+      this.send(ws, {
+        type: 'gemini_response',
+        payload: message,
+        sessionId: clientData.sessionId,
+        timestamp: Date.now(),
+      });
+    });
+  }
+
   private send(ws: WebSocket, message: WebSocketMessage) {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(message));
@@ -386,6 +432,9 @@ export class WebSocketService {
   }
 
   close() {
+    if (this.geminiClient) {
+      this.geminiClient.disconnect();
+    }
     this.wss.close();
   }
 }

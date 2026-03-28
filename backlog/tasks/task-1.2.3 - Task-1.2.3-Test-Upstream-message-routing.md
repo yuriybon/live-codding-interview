@@ -1,10 +1,10 @@
 ---
 id: TASK-1.2.3
 title: 'Task 1.2.3: [Test] Upstream message routing'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:08'
-updated_date: '2026-03-28 07:22'
+updated_date: '2026-03-28 12:18'
 labels:
   - tdd-test
   - backend
@@ -33,5 +33,5 @@ We need to ensure that raw PCM16 audio and tool calls sent by the React frontend
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A unit test asserts that when the `ClientBridge` receives a payload from the React frontend, it correctly routes it unmodified to the `GeminiLiveClient` WebSocket.
+- [x] #1 A unit test asserts that when the `ClientBridge` receives a payload from the React frontend, it correctly routes it unmodified to the `GeminiLiveClient` WebSocket.
 <!-- AC:END -->

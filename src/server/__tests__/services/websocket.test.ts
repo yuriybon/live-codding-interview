@@ -210,3 +210,266 @@ describe('WebSocketService - Polling Loop Removal', () => {
     // Analysis should be triggered by external events, not internal timers
   });
 });
+
+/**
+ * WebSocketService - Upstream Message Routing Test Suite
+ * TDD Phase: Red (Test First)
+ *
+ * These tests verify that messages from the React frontend are correctly
+ * routed through the WebSocketService to the GeminiLiveClient without
+ * modification or data loss.
+ *
+ * Expected behavior: These tests will FAIL until TASK-1.2.4 implements
+ * the message routing logic.
+ */
+
+// Mock GeminiLiveClient
+jest.mock('../../services/gemini-live', () => {
+  const EventEmitter = require('events');
+
+  class MockGeminiLiveClient extends EventEmitter {
+    connected: boolean = true; // Start connected for tests
+
+    async connect() {
+      this.connected = true;
+      this.emit('connected');
+    }
+
+    disconnect() {
+      this.connected = false;
+      this.emit('disconnected');
+    }
+
+    isConnected() {
+      return this.connected;
+    }
+
+    send = jest.fn();
+    sendAudio = jest.fn();
+    sendVideoFrame = jest.fn();
+    sendText = jest.fn();
+  }
+
+  return {
+    GeminiLiveClient: MockGeminiLiveClient,
+  };
+});
+
+describe('WebSocketService - Upstream Message Routing', () => {
+  let wsService: WebSocketService;
+  let mockClient: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    // Create mock client first
+    const EventEmitter = require('events');
+    mockClient = new EventEmitter();
+    mockClient.readyState = 1; // OPEN
+    mockClient.send = jest.fn();
+
+    // Create service and immediately inject mock gemini client
+    // This prevents the async setupGeminiClient from creating its own instance
+    wsService = new WebSocketService(8080);
+    const { GeminiLiveClient } = require('../../services/gemini-live');
+    const geminiClient = new GeminiLiveClient();
+    (wsService as any).geminiClient = geminiClient;
+  });
+
+  afterEach(() => {
+    if (wsService) {
+      wsService.close();
+    }
+  });
+
+  /**
+   * TDD Red Phase Test
+   *
+   * This test verifies that when a client sends an audio message,
+   * it gets routed to the GeminiLiveClient correctly.
+   *
+   * Current implementation WILL FAIL because:
+   * - WebSocketService doesn't have GeminiLiveClient integration yet
+   * - No routing logic implemented
+   *
+   * This test will pass once TASK-1.2.4 implements the routing.
+   */
+  it('should route audio data from client to GeminiLiveClient', async () => {
+    // Arrange: Get the mock gemini client from the service
+    const geminiClient = (wsService as any).geminiClient;
+
+    // Verify geminiClient is set up
+    expect(geminiClient).toBeDefined();
+    expect(geminiClient.isConnected()).toBe(true);
+
+    // Simulate client connection
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    // Set up client data
+    const clientData = {
+      sessionId: 'test-session-123',
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    // Create session for the client
+    const session = (wsService as any).createSession('test-session-123');
+    (wsService as any).sessions.set('test-session-123', session);
+
+    // Create audio segment message
+    const audioMessage = {
+      type: 'audio_segment',
+      payload: {
+        audioData: 'base64-encoded-pcm16-audio-data',
+        transcript: 'Hello, I am thinking about this problem...',
+      },
+      sessionId: 'test-session-123',
+      timestamp: Date.now(),
+    };
+
+    // Act: Send the audio message
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(mockClient, JSON.stringify(audioMessage));
+
+    // Assert: Verify the audio was sent to Gemini
+    expect(geminiClient.sendAudio).toHaveBeenCalledWith('base64-encoded-pcm16-audio-data');
+  });
+
+  /**
+   * Test that verifies screen frame routing
+   */
+  it('should route screen frames from client to GeminiLiveClient', async () => {
+    // Arrange: Get the mock gemini client from the service
+    const geminiClient = (wsService as any).geminiClient;
+
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    const clientData = {
+      sessionId: 'test-session-456',
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    // Create session for the client
+    const session = (wsService as any).createSession('test-session-456');
+    (wsService as any).sessions.set('test-session-456', session);
+
+    // Create screen frame message
+    const screenFrameMessage = {
+      type: 'screen_frame',
+      payload: {
+        imageData: 'base64-encoded-jpeg-image',
+        hasCodeChanges: true,
+      },
+      sessionId: 'test-session-456',
+      timestamp: Date.now(),
+    };
+
+    // Act: Send the screen frame message
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(mockClient, JSON.stringify(screenFrameMessage));
+
+    // Assert: Verify the frame was sent to Gemini
+    expect(geminiClient.sendVideoFrame).toHaveBeenCalledWith('base64-encoded-jpeg-image');
+  });
+
+  /**
+   * Test that verifies text message routing
+   */
+  it('should route text messages from client to GeminiLiveClient', async () => {
+    // Arrange: Get the mock gemini client from the service
+    const geminiClient = (wsService as any).geminiClient;
+
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    const clientData = {
+      sessionId: 'test-session-789',
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    // Create session for the client
+    const session = (wsService as any).createSession('test-session-789');
+    (wsService as any).sessions.set('test-session-789', session);
+
+    // Create request feedback message (which should send text to Gemini)
+    const feedbackRequestMessage = {
+      type: 'request_feedback',
+      payload: {
+        reason: 'Need help understanding time complexity',
+      },
+      sessionId: 'test-session-789',
+      timestamp: Date.now(),
+    };
+
+    // Act: Send the feedback request
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(mockClient, JSON.stringify(feedbackRequestMessage));
+
+    // Assert: Verify a message was sent to Gemini
+    // The exact format depends on implementation, but should include the reason
+    expect(geminiClient.sendText).toHaveBeenCalled();
+  });
+
+  /**
+   * Test that verifies data integrity during routing
+   */
+  it('should not modify or mangle data during routing', async () => {
+    // Arrange: Get the mock gemini client from the service
+    const geminiClient = (wsService as any).geminiClient;
+
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    const clientData = {
+      sessionId: 'test-session-999',
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    // Create session for the client
+    const session = (wsService as any).createSession('test-session-999');
+    (wsService as any).sessions.set('test-session-999', session);
+
+    // Create audio message with specific binary data
+    const originalAudioData = 'AQIDBAU='; // Base64 for [1,2,3,4,5]
+    const audioMessage = {
+      type: 'audio_segment',
+      payload: {
+        audioData: originalAudioData,
+        transcript: '',
+      },
+      sessionId: 'test-session-999',
+      timestamp: Date.now(),
+    };
+
+    // Act: Send the message
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(mockClient, JSON.stringify(audioMessage));
+
+    // Assert: Verify the exact data was passed through
+    expect(geminiClient.sendAudio).toHaveBeenCalledWith(originalAudioData);
+  });
+
+  /**
+   * Adapter Pattern Architecture Test
+   *
+   * Verifies that WebSocketService acts as a clean adapter between
+   * client connections and the Gemini API, following the Adapter Pattern.
+   */
+  it('should act as an adapter between client WebSocket and GeminiLiveClient', async () => {
+    // Assert: The service should maintain references to both transports
+    expect((wsService as any).geminiClient).toBeDefined();
+    expect((wsService as any).clients).toBeDefined();
+
+    // The service bridges messages between these two transports
+    // without adding business logic (that was removed in Phase 1)
+  });
+});

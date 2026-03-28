@@ -1,10 +1,10 @@
 ---
 id: TASK-1.2.4
 title: 'Task 1.2.4: [Impl] Implement upstream message routing'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:08'
-updated_date: '2026-03-28 07:22'
+updated_date: '2026-03-28 12:26'
 labels:
   - tdd-impl
   - backend
@@ -35,5 +35,5 @@ Implement the upstream relay logic. The backend acts as a low-latency proxy.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Upstream messages are correctly piped from the local WebSocket server to the Gemini Live API stream, passing the upstream routing test.
+- [x] #1 Upstream messages are correctly piped from the local WebSocket server to the Gemini Live API stream, passing the upstream routing test.
 <!-- AC:END -->

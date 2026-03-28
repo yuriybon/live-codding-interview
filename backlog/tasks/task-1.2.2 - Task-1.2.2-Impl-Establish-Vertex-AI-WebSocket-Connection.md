@@ -1,10 +1,10 @@
 ---
 id: TASK-1.2.2
 title: 'Task 1.2.2: [Impl] Establish Vertex AI WebSocket Connection'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:08'
-updated_date: '2026-03-28 07:22'
+updated_date: '2026-03-28 12:17'
 labels:
   - tdd-impl
   - backend
@@ -34,5 +34,5 @@ Implement the `GeminiLiveClient` to pass the connection initialization test.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `GeminiLiveClient` successfully authenticates and opens a WebSocket to Vertex AI, passing the test from 1.2.1.
+- [x] #1 `GeminiLiveClient` successfully authenticates and opens a WebSocket to Vertex AI, passing the test from 1.2.1.
 <!-- AC:END -->
