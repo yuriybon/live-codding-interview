@@ -1,9 +1,10 @@
 ---
 id: TASK-6.2
 title: 'Task 6.1.2: [Impl] Create Configurable Session Route'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-03-28 07:40'
+updated_date: '2026-03-28 15:35'
 labels:
   - tdd-impl
   - backend

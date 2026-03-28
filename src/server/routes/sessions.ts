@@ -45,6 +45,8 @@ router.post('/new', async (req: Request, res: Response) => {
       sessionId,
       candidateId: candidateName || 'anonymous',
       status: 'idle',
+      language, // Add this
+      exerciseId, // Add this
       createdAt: new Date(),
       updatedAt: new Date(),
       questions: questionId ? [] : [],

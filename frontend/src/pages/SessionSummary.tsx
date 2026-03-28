@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Star, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Star, AlertCircle, CheckCircle, TrendingUp, Clock, Code, Lightbulb, MessageSquare } from 'lucide-react';
 import { NavBar } from '../components/NavBar';
+import { Card, Button, SectionHeader, MetricCard } from '../components/primitives';
 
 interface SummaryData {
   session: any;
@@ -76,14 +77,14 @@ function SessionSummary() {
             <ArrowLeft className="w-5 h-5" />
             Back to Home
           </button>
-          <h1 className="text-xl font-semibold text-white">Interview Summary</h1>
+          <SectionHeader level={3}>Interview Summary</SectionHeader>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto p-6">
         {/* Overall Score */}
-        <div className="bg-gray-800 rounded-xl p-6 shadow-xl mb-6">
-          <h2 className="text-2xl font-bold text-white mb-4">Overall Performance</h2>
+        <Card variant="primary" className="mb-6">
+          <SectionHeader level={2} className="mb-4">Overall Performance</SectionHeader>
           <div className="flex items-center gap-8">
             <div className="text-center">
               <div className="text-5xl font-bold text-blue-400">
@@ -117,50 +118,46 @@ function SessionSummary() {
               </div>
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Assessment */}
-        <div className="bg-gray-800 rounded-xl p-6 shadow-xl mb-6">
-          <h2 className="text-xl font-bold text-white mb-4">AI Assessment</h2>
+        <Card variant="primary" className="mb-6">
+          <SectionHeader level={2} className="mb-4">AI Assessment</SectionHeader>
           <div className="prose prose-invert max-w-none">
             <div className="text-gray-300 whitespace-pre-wrap">
               {summary.assessment || 'No assessment available.'}
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Statistics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-gray-800 rounded-xl p-4 text-center">
-            <p className="text-3xl font-bold text-white">
-              {Math.floor(metrics.totalTime / 60)}
-            </p>
-            <p className="text-gray-400 text-sm">Minutes</p>
-          </div>
-          <div className="bg-gray-800 rounded-xl p-4 text-center">
-            <p className="text-3xl font-bold text-white">
-              {metrics.codeLinesWritten || 0}
-            </p>
-            <p className="text-gray-400 text-sm">Lines Written</p>
-          </div>
-          <div className="bg-gray-800 rounded-xl p-4 text-center">
-            <p className="text-3xl font-bold text-white">
-              {metrics.hintsRequested || 0}
-            </p>
-            <p className="text-gray-400 text-sm">Hints Used</p>
-          </div>
-          <div className="bg-gray-800 rounded-xl p-4 text-center">
-            <p className="text-3xl font-bold text-white">
-              {metrics.feedbackCount || 0}
-            </p>
-            <p className="text-gray-400 text-sm">Feedback</p>
-          </div>
+          <MetricCard
+            icon={Clock}
+            label="Minutes"
+            value={Math.floor(metrics.totalTime / 60)}
+          />
+          <MetricCard
+            icon={Code}
+            label="Lines Written"
+            value={metrics.codeLinesWritten || 0}
+          />
+          <MetricCard
+            icon={Lightbulb}
+            label="Hints Used"
+            value={metrics.hintsRequested || 0}
+          />
+          <MetricCard
+            icon={MessageSquare}
+            label="Feedback"
+            value={metrics.feedbackCount || 0}
+          />
         </div>
 
         {/* Feedback History */}
         {summary.session?.feedback && summary.session.feedback.length > 0 && (
-          <div className="bg-gray-800 rounded-xl p-6 shadow-xl">
-            <h2 className="text-xl font-bold text-white mb-4">Feedback History</h2>
+          <Card variant="primary">
+            <SectionHeader level={2} className="mb-4">Feedback History</SectionHeader>
             <div className="space-y-3">
               {summary.session.feedback.map((fb: any) => (
                 <div key={fb.id} className="bg-gray-700/50 rounded-lg p-3">
@@ -177,17 +174,18 @@ function SessionSummary() {
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
         )}
 
         {/* CTA */}
         <div className="mt-8 text-center">
-          <button
+          <Button
             onClick={() => navigate('/')}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
+            variant="primary"
+            size="md"
           >
             Start Another Interview
-          </button>
+          </Button>
         </div>
       </main>
     </div>

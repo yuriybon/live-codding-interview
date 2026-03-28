@@ -4,6 +4,8 @@ export interface InterviewSession {
   sessionId: string;
   candidateId: string;
   status: 'idle' | 'active' | 'paused' | 'completed' | 'error';
+  language?: string;
+  exerciseId?: string;
   createdAt: Date;
   updatedAt: Date;
   currentQuestion?: CodingQuestion;

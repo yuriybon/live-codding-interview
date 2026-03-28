@@ -1,10 +1,10 @@
 ---
 id: TASK-6.1
 title: 'Task 6.1.1: [Test] Session Config Endpoint Validation'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-03-28 07:39'
-updated_date: '2026-03-28 15:20'
+updated_date: '2026-03-28 15:34'
 labels:
   - tdd-test
   - backend
@@ -22,5 +22,5 @@ priority: high
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A test asserts that a `POST /api/sessions` payload missing `language` or `exerciseId` returns a 400 Bad Request error.
+- [x] #1 A test asserts that a `POST /api/sessions` payload missing `language` or `exerciseId` returns a 400 Bad Request error.
 <!-- AC:END -->
