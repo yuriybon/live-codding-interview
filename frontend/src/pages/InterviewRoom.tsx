@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { Mic, MicOff, Eye, EyeOff, MessageSquare, AlertCircle, Clock, StopCircle, Monitor, MonitorOff, Volume2 } from 'lucide-react';
@@ -8,6 +8,7 @@ import { NavBar } from '../components/NavBar';
 import { ScreenShareService } from '../services/ScreenShareService';
 import { audioPlaybackQueue } from '../services/AudioPlaybackQueue';
 import { AudioRecorderService } from '../services/AudioRecorderService';
+import { debounce } from 'lodash';
 
 function InterviewRoom() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -190,12 +191,18 @@ function InterviewRoom() {
     }
   };
 
-  const handleCodeChange = (value: string | undefined) => {
-    if (value) {
-      setCode(value);
-      // Send code update periodically (debounced)
+  // Debounce the code sending so we don't flood the websocket
+  const debouncedSendCode = useCallback(
+    debounce((value: string) => {
       wsClientRef.current.sendCodeUpdate(value, 'typescript');
-      // Note: Screen frames are now sent automatically via interval when sharing is active
+    }, 1000),
+    []
+  );
+
+  const handleCodeChange = (value: string | undefined) => {
+    if (value !== undefined) {
+      setCode(value);
+      debouncedSendCode(value);
     }
   };
 
