@@ -1,0 +1,23 @@
+cloudbuild.yaml
+  32b0928c30437010 1-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "0f3fe8ef0a3cb5a8e4361821ca59325eb5b25d0c",
+  "prompts": {
+    "32b0928c30437010": {
+      "agent_id": {
+        "tool": "gemini",
+        "id": "bf28cef5-d768-4bc0-af0d-cf06daf24341",
+        "model": "gemini-3.1-pro-preview"
+      },
+      "human_author": "Yurii Bondar <Yurii_Bondar@genpt.com>",
+      "messages": [],
+      "total_additions": 32,
+      "total_deletions": 0,
+      "accepted_lines": 32,
+      "overriden_lines": 0
+    }
+  }
+}
