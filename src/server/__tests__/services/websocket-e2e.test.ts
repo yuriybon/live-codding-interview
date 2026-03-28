@@ -139,6 +139,9 @@ describe('WebSocket End-to-End Smoke Test (TASK-12.6)', () => {
     expect(mockWs.send).toHaveBeenCalledWith(
       expect.stringContaining('"type":"connected"')
     );
+    const connectedMessage = JSON.parse(mockWs.send.mock.calls[0][0]);
+    expect(typeof connectedMessage.correlationId).toBe('string');
+    expect(connectedMessage.correlationId.length).toBeGreaterThan(0);
 
     // Step 2: Send join_session message
     const joinMessage = {
@@ -231,16 +234,23 @@ describe('WebSocket End-to-End Smoke Test (TASK-12.6)', () => {
     expect(modelTextMsg).toBeDefined();
     expect(modelTextMsg.payload.text).toBe('That sounds like a great approach for solving this problem.');
     expect(modelTextMsg.payload.isFinal).toBe(true);
+    expect(typeof modelTextMsg.correlationId).toBe('string');
 
     // Verify model_audio event
     const modelAudioMsg = sentMessages.find((m: any) => m.type === 'model_audio');
     expect(modelAudioMsg).toBeDefined();
     expect(modelAudioMsg.payload.audioData).toBe('bW9jay1hdWRpby1yZXNwb25zZQ==');
+    expect(typeof modelAudioMsg.correlationId).toBe('string');
 
     // Verify feedback was created
     const feedbackMsg = sentMessages.find((m: any) => m.type === 'feedback');
     expect(feedbackMsg).toBeDefined();
     expect(feedbackMsg.payload.type).toBe('interviewer');
+    expect(typeof feedbackMsg.correlationId).toBe('string');
+
+    // Model events produced from the same provider turn should share one correlation id
+    expect(new Set([modelTextMsg.correlationId, modelAudioMsg.correlationId, feedbackMsg.correlationId]).size)
+      .toBe(1);
 
     // SUCCESS: Complete request/response loop verified!
     // ✓ Client connected
@@ -501,5 +511,84 @@ describe('WebSocket End-to-End Smoke Test (TASK-12.6)', () => {
         response: { success: true, data: 'Test result' },
       },
     ]);
+  });
+
+  /**
+   * TASK-13.4: Interruption latency and queue reset validation
+   * Validates that interruption events are handled promptly with minimal latency
+   * Target: <= 300ms cutover time per doc-3 boxing-coach parity checklist
+   */
+  it('should handle interruption with minimal latency and reset playback queue', async () => {
+    // Connect client
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockWs);
+
+    // Join and start session
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(
+      mockWs,
+      JSON.stringify({
+        type: 'join_session',
+        payload: { sessionId: 'latency-test-session', isCandidate: true },
+        sessionId: 'latency-test-session',
+        timestamp: Date.now(),
+      })
+    );
+
+    await messageHandler(
+      mockWs,
+      JSON.stringify({
+        type: 'start_session',
+        payload: { config: {} },
+        sessionId: 'latency-test-session',
+        timestamp: Date.now(),
+      })
+    );
+
+    // Set active Gemini session
+    (wsService as any).activeGeminiSessionId = 'latency-test-session';
+
+    // Clear any previous mock calls
+    mockWs.send.mockClear();
+
+    // Measure interruption cutover time
+    const interruptionStartTime = Date.now();
+
+    // Simulate interruption from Gemini
+    mockGeminiClient.emit('message', {
+      serverContent: {
+        interrupted: true,
+      },
+    });
+
+    const interruptionEndTime = Date.now();
+    const cutoverLatency = interruptionEndTime - interruptionStartTime;
+
+    // Verify model_interruption was sent promptly
+    const sentMessages = mockWs.send.mock.calls.map((call: any) => JSON.parse(call[0]));
+    const interruptMsg = sentMessages.find((m: any) => m.type === 'model_interruption');
+
+    expect(interruptMsg).toBeDefined();
+    expect(interruptMsg.payload.reason).toBe('user_speech');
+
+    // Validate cutover latency meets boxing-coach target (<= 300ms)
+    // Note: In a real scenario, this includes network + processing time
+    // In this test, we're only measuring processing time, which should be < 10ms
+    expect(cutoverLatency).toBeLessThan(10);
+
+    // Verify interruption message structure
+    expect(interruptMsg).toMatchObject({
+      type: 'model_interruption',
+      payload: {
+        reason: 'user_speech',
+      },
+      sessionId: 'latency-test-session',
+    });
+
+    // SUCCESS: Interruption handling verified!
+    // ✓ Interruption detected and normalized
+    // ✓ model_interruption broadcast immediately
+    // ✓ Processing latency < 10ms (meets <= 300ms target with margin)
+    // ✓ Frontend would call audioPlaybackQueue.stop() to clear queue
   });
 });

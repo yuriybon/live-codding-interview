@@ -633,6 +633,40 @@ describe('WebSocketService - Session Lifecycle and Relay Parity', () => {
       },
     ]);
   });
+
+  it('should attach correlation identifiers to server error responses for invalid payloads', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    const clientData = {
+      clientId: 'client-lifecycle-4',
+      sessionId: 'session-lifecycle-4',
+      hasJoinedSession: false,
+      hasStartedSession: false,
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(
+      mockClient,
+      JSON.stringify({
+        type: 'code_update',
+        payload: { code: 'const x = 1;', language: 'typescript' },
+        sessionId: 'session-lifecycle-4',
+        timestamp: Date.now(),
+        correlationId: 'corr-invalid-input-1',
+      })
+    );
+
+    expect((clientData as any).lastCorrelationId).toBe('corr-invalid-input-1');
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('corr-invalid-input-1'));
+
+    warnSpy.mockRestore();
+  });
 });
 
 describe('WebSocketService - Gemini Output Normalization', () => {

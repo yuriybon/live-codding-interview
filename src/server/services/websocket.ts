@@ -193,31 +193,53 @@ export class WebSocketService {
   }
 
   private async handleMessage(ws: WebSocket, data: WebSocket.Data) {
+    const clientData = this.clients.get(ws);
+    if (!clientData) {
+      this.logDiagnostic('error', 'message_from_unregistered_client', {
+        failureSource: 'backend_routing',
+        reason: 'Client socket has no registration state',
+      });
+      this.send(ws, {
+        type: 'error',
+        payload: { message: 'Connection not established. Please reconnect.' },
+        sessionId: 'unknown',
+        timestamp: Date.now(),
+        correlationId: uuidv4(),
+      });
+      return;
+    }
+
+    let correlationId = clientData.lastCorrelationId ?? clientData.clientId;
+
     try {
       const message: WebSocketMessage = JSON.parse(data.toString());
-      const clientData = this.clients.get(ws);
-
-      // This should never happen since we register clients on connection
-      if (!clientData) {
-        console.error('[WebSocketService] Received message from unregistered client');
-        this.send(ws, {
-          type: 'error',
-          payload: { message: 'Connection not established. Please reconnect.' },
-          sessionId: 'unknown',
-          timestamp: Date.now(),
-        });
-        return;
-      }
+      correlationId = this.normalizeCorrelationId(message.correlationId, correlationId);
+      clientData.lastCorrelationId = correlationId;
 
       if (!message || typeof message.type !== 'string') {
+        this.logDiagnostic('warn', 'message_rejected', {
+          clientId: clientData.clientId,
+          sessionId: clientData.sessionId,
+          correlationId,
+          failureSource: 'client_payload',
+          reason: 'Missing or invalid message.type',
+        });
         this.send(ws, {
           type: 'error',
           payload: { message: 'Invalid message format' },
           sessionId: clientData.clientId,
           timestamp: Date.now(),
+          correlationId,
         });
         return;
       }
+
+      this.logDiagnostic('info', 'client_message_received', {
+        clientId: clientData.clientId,
+        sessionId: clientData.sessionId,
+        correlationId,
+        messageType: message.type,
+      });
 
       // Update last activity
       clientData.lastActivity = Date.now();
@@ -229,32 +251,59 @@ export class WebSocketService {
           clientData.hasJoinedSession || this.sessions.has(clientData.sessionId);
 
         if (!hasJoinedSession) {
+          this.logDiagnostic('warn', 'message_rejected', {
+            clientId: clientData.clientId,
+            sessionId: clientData.sessionId,
+            correlationId,
+            messageType: message.type,
+            failureSource: 'client_payload',
+            reason: 'Session not joined before non-join message',
+          });
           this.send(ws, {
             type: 'error',
             payload: { message: 'Must join a session first. Send join_session message.' },
             sessionId: clientData.clientId,
             timestamp: Date.now(),
+            correlationId,
           });
           return;
         }
 
         const session = this.sessions.get(clientData.sessionId);
         if (!session) {
+          this.logDiagnostic('warn', 'message_rejected', {
+            clientId: clientData.clientId,
+            sessionId: clientData.sessionId,
+            correlationId,
+            messageType: message.type,
+            failureSource: 'backend_routing',
+            reason: 'Bound session not found',
+          });
           this.send(ws, {
             type: 'error',
             payload: { message: 'Session not found. Rejoin session.' },
             sessionId: clientData.sessionId,
             timestamp: Date.now(),
+            correlationId,
           });
           return;
         }
 
         if (typeof message.sessionId === 'string' && message.sessionId !== clientData.sessionId) {
+          this.logDiagnostic('warn', 'message_rejected', {
+            clientId: clientData.clientId,
+            sessionId: clientData.sessionId,
+            correlationId,
+            messageType: message.type,
+            failureSource: 'client_payload',
+            reason: 'Session mismatch for this socket',
+          });
           this.send(ws, {
             type: 'error',
             payload: { message: 'Session mismatch for this connection.' },
             sessionId: clientData.sessionId,
             timestamp: Date.now(),
+            correlationId,
           });
           return;
         }
@@ -311,15 +360,29 @@ export class WebSocketService {
           break;
 
         default:
-          console.log('Unknown message type:', message.type);
+          this.logDiagnostic('warn', 'message_unrecognized', {
+            clientId: clientData.clientId,
+            sessionId: clientData.sessionId,
+            correlationId,
+            failureSource: 'client_payload',
+            reason: `Unsupported message type: ${message.type}`,
+            messageType: message.type,
+          });
       }
     } catch (error) {
-      console.error('Error handling message:', error);
+      this.logDiagnostic('error', 'message_parse_failed', {
+        clientId: clientData.clientId,
+        sessionId: clientData.sessionId,
+        correlationId,
+        failureSource: 'client_payload',
+        reason: error instanceof Error ? error.message : 'Unknown parse error',
+      });
       this.send(ws, {
         type: 'error',
         payload: { message: 'Invalid message format' },
-        sessionId: 'unknown',
+        sessionId: clientData.sessionId,
         timestamp: Date.now(),
+        correlationId,
       });
     }
   }
@@ -329,12 +392,23 @@ export class WebSocketService {
     payload: { sessionId: string; isCandidate: boolean },
     clientData: ClientData
   ) {
+    const correlationId = this.correlationForClient(clientData);
+
     if (!payload || typeof payload.sessionId !== 'string' || payload.sessionId.trim().length === 0) {
+      this.logDiagnostic('warn', 'message_rejected', {
+        clientId: clientData.clientId,
+        sessionId: clientData.sessionId,
+        correlationId,
+        failureSource: 'client_payload',
+        reason: 'Invalid join_session payload: missing sessionId',
+        messageType: 'join_session',
+      });
       this.send(ws, {
         type: 'error',
         payload: { message: 'Invalid join_session payload: sessionId is required.' },
         sessionId: clientData.clientId,
         timestamp: Date.now(),
+        correlationId,
       });
       return;
     }
@@ -369,6 +443,7 @@ export class WebSocketService {
       },
       sessionId,
       timestamp: Date.now(),
+      correlationId,
     });
 
     this.send(ws, {
@@ -380,6 +455,7 @@ export class WebSocketService {
       },
       sessionId,
       timestamp: Date.now(),
+      correlationId,
     });
   }
 
@@ -388,13 +464,23 @@ export class WebSocketService {
     payload: { config?: StartSessionConfig } | StartSessionConfig,
     clientData: ClientData
   ) {
+    const correlationId = this.correlationForClient(clientData);
     const session = this.sessions.get(clientData.sessionId);
     if (!session) {
+      this.logDiagnostic('warn', 'message_rejected', {
+        clientId: clientData.clientId,
+        sessionId: clientData.sessionId,
+        correlationId,
+        failureSource: 'backend_routing',
+        reason: 'start_session requested for unknown session',
+        messageType: 'start_session',
+      });
       this.send(ws, {
         type: 'error',
         payload: { message: 'Session not found. Join a session first.' },
         sessionId: clientData.sessionId,
         timestamp: Date.now(),
+        correlationId,
       });
       return;
     }
@@ -423,6 +509,7 @@ export class WebSocketService {
       },
       sessionId: clientData.sessionId,
       timestamp: Date.now(),
+      correlationId,
     });
   }
 
@@ -431,16 +518,26 @@ export class WebSocketService {
     payload: RealtimeInputPayload,
     clientData: ClientData
   ) {
+    const correlationId = this.correlationForClient(clientData);
     const session = this.sessions.get(clientData.sessionId);
     if (!session || clientData.isCandidate === false) return;
 
     const media = payload?.media;
     if (!media || typeof media.data !== 'string' || typeof media.mimeType !== 'string') {
+      this.logDiagnostic('warn', 'message_rejected', {
+        clientId: clientData.clientId,
+        sessionId: clientData.sessionId,
+        correlationId,
+        failureSource: 'client_payload',
+        reason: 'Invalid realtime_input payload: missing media.data or media.mimeType',
+        messageType: 'realtime_input',
+      });
       this.send(ws, {
         type: 'error',
         payload: { message: 'Invalid realtime_input payload: media.data and media.mimeType are required.' },
         sessionId: clientData.sessionId,
         timestamp: Date.now(),
+        correlationId,
       });
       return;
     }
@@ -472,11 +569,20 @@ export class WebSocketService {
       return;
     }
 
+    this.logDiagnostic('warn', 'message_rejected', {
+      clientId: clientData.clientId,
+      sessionId: clientData.sessionId,
+      correlationId,
+      failureSource: 'client_payload',
+      reason: `Unsupported realtime_input mimeType: ${media.mimeType}`,
+      messageType: 'realtime_input',
+    });
     this.send(ws, {
       type: 'error',
       payload: { message: `Unsupported realtime_input mimeType: ${media.mimeType}` },
       sessionId: clientData.sessionId,
       timestamp: Date.now(),
+      correlationId,
     });
   }
 
@@ -508,6 +614,7 @@ export class WebSocketService {
     payload: AudioSegment,
     clientData: ClientData
   ) {
+    const correlationId = this.correlationForClient(clientData);
     const session = this.sessions.get(clientData.sessionId);
     if (!session || clientData.isCandidate === false) return;
 
@@ -538,6 +645,23 @@ export class WebSocketService {
         ? payload.audioData.toString('base64')
         : payload.audioData;
       this.geminiClient.sendAudio(base64Audio);
+      this.logDiagnostic('info', 'relay_forwarded', {
+        sessionId: clientData.sessionId,
+        clientId: clientData.clientId,
+        correlationId,
+        relayType: 'audio',
+        target: 'gemini_live',
+      });
+    } else if (payload.audioData) {
+      this.logDiagnostic('warn', 'relay_failure', {
+        sessionId: clientData.sessionId,
+        clientId: clientData.clientId,
+        correlationId,
+        relayType: 'audio',
+        target: 'gemini_live',
+        failureSource: 'backend_routing',
+        reason: 'Gemini client unavailable while forwarding audio',
+      });
     }
   }
 
@@ -546,6 +670,7 @@ export class WebSocketService {
     payload: ScreenCaptureFrame,
     clientData: ClientData
   ) {
+    const correlationId = this.correlationForClient(clientData);
     const session = this.sessions.get(clientData.sessionId);
     if (!session) return;
 
@@ -563,6 +688,23 @@ export class WebSocketService {
         ? payload.imageData.toString('base64')
         : payload.imageData;
       this.geminiClient.sendVideoFrame(base64Image);
+      this.logDiagnostic('info', 'relay_forwarded', {
+        sessionId: clientData.sessionId,
+        clientId: clientData.clientId,
+        correlationId,
+        relayType: 'image',
+        target: 'gemini_live',
+      });
+    } else if (payload.imageData) {
+      this.logDiagnostic('warn', 'relay_failure', {
+        sessionId: clientData.sessionId,
+        clientId: clientData.clientId,
+        correlationId,
+        relayType: 'image',
+        target: 'gemini_live',
+        failureSource: 'backend_routing',
+        reason: 'Gemini client unavailable while forwarding image frame',
+      });
     }
   }
 
@@ -597,6 +739,7 @@ export class WebSocketService {
     payload: { reason: string },
     clientData: ClientData
   ) {
+    const correlationId = this.correlationForClient(clientData);
     const session = this.sessions.get(clientData.sessionId);
     if (!session) return;
 
@@ -610,6 +753,23 @@ export class WebSocketService {
 
       const requestText = `The candidate is requesting help: ${payload.reason}`;
       this.geminiClient.sendText(requestText);
+      this.logDiagnostic('info', 'relay_forwarded', {
+        sessionId: clientData.sessionId,
+        clientId: clientData.clientId,
+        correlationId,
+        relayType: 'text',
+        target: 'gemini_live',
+      });
+    } else {
+      this.logDiagnostic('warn', 'relay_failure', {
+        sessionId: clientData.sessionId,
+        clientId: clientData.clientId,
+        correlationId,
+        relayType: 'text',
+        target: 'gemini_live',
+        failureSource: 'backend_routing',
+        reason: 'Gemini client unavailable while forwarding feedback request',
+      });
     }
 
     // Note: The response will come through handleGeminiMessage
@@ -634,12 +794,22 @@ export class WebSocketService {
     payload: { toolResponses?: unknown[]; toolCallId?: string; output?: unknown },
     clientData: ClientData
   ) {
+    const correlationId = this.correlationForClient(clientData);
     if (!this.geminiClient || !this.geminiClient.isConnected()) {
+      this.logDiagnostic('warn', 'relay_failure', {
+        clientId: clientData.clientId,
+        sessionId: clientData.sessionId,
+        correlationId,
+        failureSource: 'backend_routing',
+        reason: 'tool_response received while Gemini client is disconnected',
+        messageType: 'tool_response',
+      });
       this.send(ws, {
         type: 'error',
         payload: { message: 'Model session is not connected.' },
         sessionId: clientData.sessionId,
         timestamp: Date.now(),
+        correlationId,
       });
       return;
     }
@@ -649,22 +819,46 @@ export class WebSocketService {
       : this.normalizeSingleToolResponse(payload);
 
     if (functionResponses.length === 0) {
+      this.logDiagnostic('warn', 'message_rejected', {
+        clientId: clientData.clientId,
+        sessionId: clientData.sessionId,
+        correlationId,
+        failureSource: 'client_payload',
+        reason: 'Invalid tool_response payload',
+        messageType: 'tool_response',
+      });
       this.send(ws, {
         type: 'error',
         payload: { message: 'Invalid tool_response payload.' },
         sessionId: clientData.sessionId,
         timestamp: Date.now(),
+        correlationId,
       });
       return;
     }
 
     this.activeGeminiSessionId = clientData.sessionId;
     this.geminiClient.sendToolResponse(functionResponses);
+    this.logDiagnostic('info', 'relay_forwarded', {
+      sessionId: clientData.sessionId,
+      clientId: clientData.clientId,
+      correlationId,
+      relayType: 'tool_response',
+      target: 'gemini_live',
+    });
   }
 
-  private handleDisconnect(ws: WebSocket) {
+  private handleDisconnect(ws: WebSocket, code?: number, reason?: string) {
     const clientData = this.clients.get(ws);
     if (clientData) {
+      this.logDiagnostic('info', 'connection_closed', {
+        clientId: clientData.clientId,
+        sessionId: clientData.sessionId,
+        correlationId: clientData.lastCorrelationId ?? clientData.clientId,
+        code,
+        reason: reason || 'No reason provided',
+      });
+
       const session = this.sessions.get(clientData.sessionId);
       if (session) {
         // Check if this is the last client in this session after disconnect
@@ -701,18 +895,31 @@ export class WebSocketService {
     try {
       // Ignore setup completion messages
       if (rawMessage.setupComplete) {
-        console.log('[WebSocketService] Gemini setup complete');
+        this.logDiagnostic('info', 'provider_setup_complete', {
+          provider: 'gemini_live',
+        });
         return;
       }
 
       // Only process if we have an active session
       if (!this.activeGeminiSessionId) {
-        console.warn('[WebSocketService] Received Gemini message but no active session');
+        this.logDiagnostic('warn', 'provider_message_dropped', {
+          provider: 'gemini_live',
+          failureSource: 'provider_response',
+          reason: 'Received provider message with no active session',
+        });
         return;
       }
 
       const sessionId = this.activeGeminiSessionId;
+      const correlationId = uuidv4();
       const geminiMessage = rawMessage as GeminiLiveMessage;
+
+      this.logDiagnostic('info', 'provider_message_received', {
+        provider: 'gemini_live',
+        sessionId,
+        correlationId,
+      });
 
       // Check for interruption
       if (geminiMessage.serverContent?.interrupted) {
@@ -723,6 +930,7 @@ export class WebSocketService {
           },
           sessionId,
           timestamp: Date.now(),
+          correlationId,
         });
         return;
       }
@@ -754,12 +962,13 @@ export class WebSocketService {
             },
             sessionId,
             timestamp: Date.now(),
+            correlationId,
           };
 
           this.broadcastToSession(sessionId, textMessage);
 
           // Also create a feedback entry for persistence
-          this.createFeedbackFromText(sessionId, part.text, isFinal);
+          this.createFeedbackFromText(sessionId, part.text, isFinal, correlationId);
         }
 
         // Handle audio content
@@ -772,6 +981,7 @@ export class WebSocketService {
             },
             sessionId,
             timestamp: Date.now(),
+            correlationId,
           };
 
           this.broadcastToSession(sessionId, audioMessage);
@@ -791,13 +1001,18 @@ export class WebSocketService {
             },
             sessionId,
             timestamp: Date.now(),
+            correlationId,
           };
 
           this.broadcastToSession(sessionId, toolCallMessage);
         }
       }
     } catch (error) {
-      console.error('[WebSocketService] Error handling Gemini message:', error);
+      this.logDiagnostic('error', 'provider_message_failed', {
+        provider: 'gemini_live',
+        failureSource: 'provider_response',
+        reason: error instanceof Error ? error.message : 'Unknown provider message parse error',
+      });
 
       // Send error to active session if we have one
       if (this.activeGeminiSessionId) {
@@ -809,6 +1024,7 @@ export class WebSocketService {
           },
           sessionId: this.activeGeminiSessionId,
           timestamp: Date.now(),
+          correlationId: uuidv4(),
         });
       }
     }
@@ -880,7 +1096,12 @@ export class WebSocketService {
   /**
    * Creates a persistent feedback entry from AI text response
    */
-  private createFeedbackFromText(sessionId: string, text: string, isFinal: boolean) {
+  private createFeedbackFromText(
+    sessionId: string,
+    text: string,
+    isFinal: boolean,
+    correlationId?: string
+  ) {
     // Only create feedback for final messages to avoid duplicates
     if (!isFinal) return;
 
@@ -909,21 +1130,83 @@ export class WebSocketService {
       payload: feedback,
       sessionId,
       timestamp: Date.now(),
+      correlationId,
     });
   }
 
   private send(ws: WebSocket, message: WebSocketMessage) {
     if (ws.readyState === WebSocket.OPEN) {
+      const clientData = this.clients.get(ws);
+      this.logDiagnostic('info', 'server_message_sent', {
+        clientId: clientData?.clientId,
+        sessionId: message.sessionId || clientData?.sessionId,
+        correlationId:
+          message.correlationId ??
+          clientData?.lastCorrelationId ??
+          clientData?.clientId,
+        messageType: message.type,
+      });
       ws.send(JSON.stringify(message));
     }
   }
 
   private broadcastToSession(sessionId: string, message: WebSocketMessage) {
+    const recipients = Array.from(this.clients.values()).filter(
+      (clientData) => clientData.sessionId === sessionId
+    ).length;
+    this.logDiagnostic('info', 'session_broadcast', {
+      sessionId,
+      messageType: message.type,
+      correlationId: message.correlationId,
+      recipients,
+    });
+
     this.clients.forEach((clientData, ws) => {
       if (clientData.sessionId === sessionId) {
         this.send(ws, message);
       }
     });
+  }
+
+  private correlationForClient(clientData: ClientData): string {
+    const normalized = this.normalizeCorrelationId(clientData.lastCorrelationId, clientData.clientId);
+    clientData.lastCorrelationId = normalized;
+    return normalized;
+  }
+
+  private normalizeCorrelationId(raw: unknown, fallback?: string): string {
+    if (typeof raw === 'string' && raw.trim().length > 0) {
+      return raw.trim();
+    }
+    if (typeof fallback === 'string' && fallback.trim().length > 0) {
+      return fallback.trim();
+    }
+    return uuidv4();
+  }
+
+  private logDiagnostic(
+    level: 'info' | 'warn' | 'error',
+    event: string,
+    details: Record<string, unknown>
+  ) {
+    const entry = {
+      ts: new Date().toISOString(),
+      event,
+      ...details,
+    };
+    const serialized = `[WS_DIAG] ${JSON.stringify(entry)}`;
+
+    if (level === 'error') {
+      console.error(serialized);
+      return;
+    }
+
+    if (level === 'warn') {
+      console.warn(serialized);
+      return;
+    }
+
+    console.log(serialized);
   }
 
   getSession(sessionId: string): InterviewSession | undefined {
