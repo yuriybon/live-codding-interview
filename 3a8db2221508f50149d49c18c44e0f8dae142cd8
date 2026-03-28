@@ -1,0 +1,23 @@
+src/server/services/gemini-live.ts
+  e41ec2911ae016dc 181-182,190-192
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "3a8db2221508f50149d49c18c44e0f8dae142cd8",
+  "prompts": {
+    "e41ec2911ae016dc": {
+      "agent_id": {
+        "tool": "gemini",
+        "id": "3b376078-b74d-462a-8502-9a8245a69d81",
+        "model": "gemini-3.1-pro-preview"
+      },
+      "human_author": "Yurii Bondar <Yurii_Bondar@genpt.com>",
+      "messages": [],
+      "total_additions": 13,
+      "total_deletions": 11,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    }
+  }
+}
