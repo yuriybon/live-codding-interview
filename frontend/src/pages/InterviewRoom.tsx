@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import { Mic, MicOff, Eye, EyeOff, MessageSquare, AlertCircle, Clock, StopCircle } from 'lucide-react';
+import { Mic, MicOff, Eye, EyeOff, MessageSquare, AlertCircle, Clock, StopCircle, Monitor, MonitorOff } from 'lucide-react';
 import { useInterviewStore } from '../store/interviewStore';
 import { wsClient } from '../services/websocketClient';
 import { NavBar } from '../components/NavBar';
+import { ScreenShareService } from '../services/ScreenShareService';
 
 function InterviewRoom() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -13,6 +14,9 @@ function InterviewRoom() {
   const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [recognition, setRecognition] = useState<any>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const frameCaptureInterval = useRef<NodeJS.Timeout | null>(null);
 
   const {
     sessionId: storeSessionId,
@@ -31,6 +35,10 @@ function InterviewRoom() {
   // Store the WebSocket client instance
   const wsClientRef = useRef(wsClient);
 
+  // Screen share service and preview video element
+  const screenShareService = useRef<ScreenShareService>(new ScreenShareService());
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
+
   useEffect(() => {
     if (!sessionId) return;
 
@@ -43,6 +51,13 @@ function InterviewRoom() {
       .catch((err) => console.error('Failed to connect:', err));
 
     return () => {
+      // Cleanup: stop screen sharing and frame capture
+      if (frameCaptureInterval.current) {
+        clearInterval(frameCaptureInterval.current);
+      }
+      if (screenShareService.current.isSharing) {
+        screenShareService.current.stop();
+      }
       wsClientRef.current.endSession();
     };
   }, [sessionId]);
@@ -111,12 +126,69 @@ function InterviewRoom() {
     }
   };
 
+  const toggleScreenShare = async () => {
+    const service = screenShareService.current;
+
+    if (isSharing) {
+      // Stop sharing
+      service.stop();
+      service.detachPreview();
+
+      // Stop frame capture interval
+      if (frameCaptureInterval.current) {
+        clearInterval(frameCaptureInterval.current);
+        frameCaptureInterval.current = null;
+      }
+
+      setIsSharing(false);
+      setShareError(null);
+    } else {
+      // Start sharing
+      try {
+        setShareError(null);
+        await service.start();
+
+        // Attach to video preview if element is ready
+        if (videoPreviewRef.current) {
+          service.attachPreview(videoPreviewRef.current);
+        }
+
+        // Register callback for when user stops via browser UI
+        service.onStop(() => {
+          if (frameCaptureInterval.current) {
+            clearInterval(frameCaptureInterval.current);
+            frameCaptureInterval.current = null;
+          }
+          setIsSharing(false);
+          setShareError(null);
+        });
+
+        setIsSharing(true);
+
+        // Start periodic frame capture (1 frame per second)
+        // Wait a bit for video preview to be ready
+        setTimeout(() => {
+          frameCaptureInterval.current = setInterval(() => {
+            const frameData = service.captureFrame();
+            if (frameData) {
+              // Send to backend with code change indicator
+              wsClientRef.current.sendScreenFrame(frameData, false);
+            }
+          }, 1000); // 1 FPS
+        }, 500);
+      } catch (error: any) {
+        setShareError(error.message);
+        console.error('Screen share error:', error);
+      }
+    }
+  };
+
   const handleCodeChange = (value: string | undefined) => {
     if (value) {
       setCode(value);
       // Send code update periodically (debounced)
       wsClientRef.current.sendCodeUpdate(value, 'typescript');
-      wsClientRef.current.sendScreenFrame(true);
+      // Note: Screen frames are now sent automatically via interval when sharing is active
     }
   };
 
@@ -167,6 +239,20 @@ function InterviewRoom() {
             >
               {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               <span>{isListening ? 'Stop Recording' : 'Start Recording'}</span>
+            </button>
+
+            {/* Screen Share Toggle */}
+            <button
+              onClick={toggleScreenShare}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                isSharing
+                  ? 'bg-green-600 text-white hover:bg-green-700'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+              title={shareError || undefined}
+            >
+              {isSharing ? <MonitorOff className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
+              <span>{isSharing ? 'Stop Sharing' : 'Share Screen'}</span>
             </button>
 
             {/* Request Help */}
@@ -281,6 +367,35 @@ function InterviewRoom() {
                 </div>
               </div>
             </div>
+
+            {/* Screen Share Preview */}
+            {isSharing && (
+              <div className="bg-gray-800 rounded-xl p-4 shadow-xl">
+                <div className="flex items-center gap-2 mb-4">
+                  <Monitor className="w-5 h-5 text-green-400" />
+                  <h2 className="text-lg font-semibold text-white">Screen Share</h2>
+                  <span className="ml-auto text-xs text-green-400">● Live</span>
+                </div>
+                <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
+                  <video
+                    ref={videoPreviewRef}
+                    autoPlay
+                    muted
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Share Error Message */}
+            {shareError && (
+              <div className="bg-red-900/30 border border-red-800 rounded-xl p-4 shadow-xl">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-400" />
+                  <p className="text-red-200 text-sm">{shareError}</p>
+                </div>
+              </div>
+            )}
 
             {/* Transcript Preview */}
             <div className="bg-gray-800 rounded-xl p-4 shadow-xl">

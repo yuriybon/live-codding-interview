@@ -118,7 +118,12 @@ export class WebSocketClient {
     );
   }
 
-  sendScreenFrame(hasCodeChanges: boolean) {
+  /**
+   * Send screen frame with base64-encoded JPEG image data
+   * @param imageData - Base64-encoded JPEG image (without data:image/jpeg;base64, prefix)
+   * @param hasCodeChanges - Whether code has changed since last frame
+   */
+  sendScreenFrame(imageData: string, hasCodeChanges: boolean = false) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
     const { sessionId } = useInterviewStore.getState();
@@ -128,8 +133,9 @@ export class WebSocketClient {
       JSON.stringify({
         type: 'screen_frame',
         payload: {
-          timestamp: Date.now(),
+          imageData,
           hasCodeChanges,
+          timestamp: Date.now(),
         },
         sessionId,
         timestamp: Date.now(),
