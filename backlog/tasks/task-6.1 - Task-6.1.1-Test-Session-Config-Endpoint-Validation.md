@@ -1,9 +1,10 @@
 ---
 id: TASK-6.1
 title: 'Task 6.1.1: [Test] Session Config Endpoint Validation'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-03-28 07:39'
+updated_date: '2026-03-28 15:20'
 labels:
   - tdd-test
   - backend
