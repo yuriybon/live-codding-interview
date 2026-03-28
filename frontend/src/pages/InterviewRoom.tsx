@@ -18,12 +18,16 @@ function InterviewRoom() {
   const {
     sessionId: storeSessionId,
     isJoined,
+    isAISpeaking,
+    isUserSpeaking,
     feedback,
     sessionMetrics,
     code: storeCode,
     language: storeLanguage,
     addFeedback,
     acknowledgeFeedback,
+    setAISpeaking,
+    setUserSpeaking,
     updateMetrics,
     endSession,
   } = useInterviewStore();
@@ -32,7 +36,6 @@ function InterviewRoom() {
   const [isListening, setIsListening] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
-  const [isAISpeaking, setIsAISpeaking] = useState(false);
 
   // Sync with store if code changes from external (tool call)
   useEffect(() => {
@@ -40,6 +43,9 @@ function InterviewRoom() {
   }, [storeCode]);
 
   const frameCaptureInterval = useRef<NodeJS.Timeout | null>(null);
+  const userSpeechDebounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const lastStopOutputSentAt = useRef<number>(0);
+  const aiSpeakingRef = useRef<boolean>(false);
 
   const codeRef = useRef<string>(code);
   const hasCodeChangesRef = useRef<boolean>(false);
@@ -77,16 +83,31 @@ function InterviewRoom() {
 
     // Setup audio playback callbacks
     audioPlaybackQueue.onStart(() => {
-      setIsAISpeaking(true);
+      aiSpeakingRef.current = true;
+      setAISpeaking(true);
     });
 
     audioPlaybackQueue.onComplete(() => {
-      setIsAISpeaking(false);
+      aiSpeakingRef.current = false;
+      setAISpeaking(false);
     });
 
     // Setup raw audio capture callback
     audioRecorderService.current.onData((pcm16Data) => {
        const base64Data = int16ToBase64(pcm16Data);
+       setUserSpeaking(true);
+       if (userSpeechDebounceTimeout.current) {
+         clearTimeout(userSpeechDebounceTimeout.current);
+       }
+       userSpeechDebounceTimeout.current = setTimeout(() => {
+         setUserSpeaking(false);
+       }, 300);
+
+       if (aiSpeakingRef.current && Date.now() - lastStopOutputSentAt.current > 600) {
+         lastStopOutputSentAt.current = Date.now();
+         wsClientRef.current.sendStopOutput('user_speech');
+       }
+
        wsClientRef.current.sendRawAudio(base64Data);
     });
 
@@ -112,6 +133,11 @@ function InterviewRoom() {
       if (audioRecorderService.current.isRecording) {
         audioRecorderService.current.stop();
       }
+      if (userSpeechDebounceTimeout.current) {
+        clearTimeout(userSpeechDebounceTimeout.current);
+      }
+      setUserSpeaking(false);
+      setAISpeaking(false);
       wsClientRef.current.endSession();
       audioPlaybackQueue.dispose();
 
@@ -125,6 +151,7 @@ function InterviewRoom() {
     if (isListening) {
       await audioRecorderService.current.stop();
       setIsListening(false);
+      setUserSpeaking(false);
     } else {
       try {
         await audioRecorderService.current.start();
@@ -417,9 +444,11 @@ function InterviewRoom() {
                   <Mic className="w-6 h-6" />
                 </div>
                 <p className="text-[11px] text-gray-500 text-center font-medium leading-relaxed">
-                  {isListening 
-                    ? 'Your microphone is active. Alex can hear you.' 
-                    : 'Microphone is muted. Click "Start Mic" to begin speaking.'}
+                  {isUserSpeaking
+                    ? 'Voice activity detected. Interrupt signal is active while Alex is speaking.'
+                    : isListening
+                      ? 'Your microphone is active. Alex can hear you.'
+                      : 'Microphone is muted. Click "Start Mic" to begin speaking.'}
                 </p>
               </div>
             </Card>

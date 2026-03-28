@@ -51,6 +51,10 @@ interface RealtimeInputPayload {
   };
 }
 
+interface StopOutputPayload {
+  reason?: 'user_speech' | 'user_input';
+}
+
 /**
  * WebSocket Service - Handles real-time communication
  */
@@ -355,6 +359,14 @@ export class WebSocketService {
           await this.handleToolResponse(
             ws,
             (message as any).payload ?? { toolResponses: (message as any).toolResponses },
+            clientData
+          );
+          break;
+
+        case 'stop_output':
+          await this.handleStopOutput(
+            ws,
+            ((message as any).payload ?? {}) as StopOutputPayload,
             clientData
           );
           break;
@@ -774,6 +786,37 @@ export class WebSocketService {
 
     // Note: The response will come through handleGeminiMessage
     // and will be broadcast to the client as feedback
+  }
+
+  private async handleStopOutput(
+    ws: WebSocket,
+    payload: StopOutputPayload,
+    clientData: ClientData
+  ) {
+    const correlationId = this.correlationForClient(clientData);
+    const session = this.sessions.get(clientData.sessionId);
+    if (!session) return;
+
+    const reason =
+      payload?.reason === 'user_input' || payload?.reason === 'user_speech'
+        ? payload.reason
+        : 'user_speech';
+
+    this.broadcastToSession(clientData.sessionId, {
+      type: 'model_interruption',
+      payload: { reason },
+      sessionId: clientData.sessionId,
+      timestamp: Date.now(),
+      correlationId,
+    });
+
+    this.logDiagnostic('info', 'interruption_signaled', {
+      clientId: clientData.clientId,
+      sessionId: clientData.sessionId,
+      correlationId,
+      relayType: 'stop_output',
+      reason,
+    });
   }
 
   private handleFeedbackAcknowledgement(

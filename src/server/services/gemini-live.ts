@@ -245,14 +245,14 @@ Be concise in your verbal responses to avoid interrupting the candidate's flow. 
             },
           },
         },
-        realtime_input_config: {
-          automatic_activity_detection: {
-            start_of_speech_sensitivity: 'MEDIUM',
-            end_of_speech_sensitivity: 'MEDIUM',
-            prefix_padding_ms: 300,
-            silence_duration_ms: 500,
+        realtimeInputConfig: {
+          automaticActivityDetection: {
+            startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
+            endOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
+            prefixPaddingMs: 300,
+            silenceDurationMs: 500,
           },
-          activity_handling: 'START_OF_ACTIVITY_INTERRUPTS',
+          activityHandling: 'START_OF_ACTIVITY_INTERRUPTS',
         },
         system_instruction: {
           parts: [
