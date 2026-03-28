@@ -11,6 +11,13 @@ import {
 } from '../types';
 import { vertexAI } from './vertex-ai';
 import { GeminiLiveClient } from './gemini-live';
+import {
+  GeminiLiveMessage,
+  ModelTextMessage,
+  ModelAudioMessage,
+  ModelInterruptionMessage,
+  ModelToolCallMessage,
+} from '../../shared/websocket-contract';
 
 interface ClientData {
   sessionId: string;
@@ -34,6 +41,7 @@ export class WebSocketService {
   private sessions: Map<string, InterviewSession> = new Map();
   private feedbackQueue: Map<string, Feedback[]> = new Map();
   private geminiClient: GeminiLiveClient | null = null;
+  private activeGeminiSessionId: string | null = null; // Track which session is using Gemini
 
   constructor(port: number) {
     this.wss = new WebSocketServer({ port });
@@ -94,7 +102,15 @@ export class WebSocketService {
 
   private handleConnection(ws: WebSocket) {
     const clientId = uuidv4();
-    
+
+    // Register client immediately with pending state
+    // They will update their sessionId when they send join_session
+    this.clients.set(ws, {
+      sessionId: clientId, // Temporary until join_session
+      isCandidate: false,
+      lastActivity: Date.now(),
+    });
+
     ws.on('message', (data) => {
       this.handleMessage(ws, data);
     });
@@ -124,10 +140,12 @@ export class WebSocketService {
       const message: WebSocketMessage = JSON.parse(data.toString());
       const clientData = this.clients.get(ws);
 
+      // This should never happen since we register clients on connection
       if (!clientData) {
+        console.error('[WebSocketService] Received message from unregistered client');
         this.send(ws, {
           type: 'error',
-          payload: { message: 'Not authenticated' },
+          payload: { message: 'Connection not established. Please reconnect.' },
           sessionId: 'unknown',
           timestamp: Date.now(),
         });
@@ -136,6 +154,20 @@ export class WebSocketService {
 
       // Update last activity
       clientData.lastActivity = Date.now();
+
+      // For non-join messages, verify the client has joined a session
+      if (message.type !== 'join_session') {
+        const session = this.sessions.get(clientData.sessionId);
+        if (!session) {
+          this.send(ws, {
+            type: 'error',
+            payload: { message: 'Must join a session first. Send join_session message.' },
+            sessionId: clientData.sessionId,
+            timestamp: Date.now(),
+          });
+          return;
+        }
+      }
 
       // Handle different message types
       switch (message.type) {
@@ -275,6 +307,9 @@ export class WebSocketService {
 
     // Route audio to Gemini Live API
     if (this.geminiClient && this.geminiClient.isConnected() && payload.audioData) {
+      // Track which session is actively using Gemini
+      this.activeGeminiSessionId = clientData.sessionId;
+
       const base64Audio = Buffer.isBuffer(payload.audioData)
         ? payload.audioData.toString('base64')
         : payload.audioData;
@@ -297,6 +332,9 @@ export class WebSocketService {
 
     // Route screen frame to Gemini Live API
     if (this.geminiClient && this.geminiClient.isConnected() && payload.imageData) {
+      // Track which session is actively using Gemini
+      this.activeGeminiSessionId = clientData.sessionId;
+
       const base64Image = Buffer.isBuffer(payload.imageData)
         ? payload.imageData.toString('base64')
         : payload.imageData;
@@ -343,6 +381,9 @@ export class WebSocketService {
 
     // Route text request to Gemini Live API
     if (this.geminiClient && this.geminiClient.isConnected()) {
+      // Track which session is actively using Gemini
+      this.activeGeminiSessionId = clientData.sessionId;
+
       const requestText = `The candidate is requesting help: ${payload.reason}`;
       this.geminiClient.sendText(requestText);
     }
@@ -385,21 +426,176 @@ export class WebSocketService {
   /**
    * Handles messages received from Gemini Live API
    * and broadcasts them to connected clients
+   *
+   * Transforms raw Gemini Live API responses into normalized app-level events:
+   * - model_text: Text responses from the AI interviewer
+   * - model_audio: PCM16 audio for playback
+   * - model_tool_call: Function calls to execute
+   * - model_interruption: Interruption signals
    */
-  private handleGeminiMessage(message: any) {
-    // Extract text or audio response from Gemini
-    // The message format follows Gemini Live API structure
+  private handleGeminiMessage(rawMessage: any) {
+    try {
+      // Ignore setup completion messages
+      if (rawMessage.setupComplete) {
+        console.log('[WebSocketService] Gemini setup complete');
+        return;
+      }
 
-    // Broadcast to all connected clients
-    // For now, we'll broadcast raw Gemini messages
-    // In production, you might transform these into app-specific formats
-    this.clients.forEach((clientData, ws) => {
-      this.send(ws, {
-        type: 'gemini_response',
-        payload: message,
-        sessionId: clientData.sessionId,
-        timestamp: Date.now(),
-      });
+      // Only process if we have an active session
+      if (!this.activeGeminiSessionId) {
+        console.warn('[WebSocketService] Received Gemini message but no active session');
+        return;
+      }
+
+      const sessionId = this.activeGeminiSessionId;
+      const geminiMessage = rawMessage as GeminiLiveMessage;
+
+      // Check for interruption
+      if (geminiMessage.serverContent?.interrupted) {
+        this.broadcastToSession(sessionId, {
+          type: 'model_interruption',
+          payload: {
+            reason: 'user_speech',
+          },
+          sessionId,
+          timestamp: Date.now(),
+        });
+        return;
+      }
+
+      // Extract and process model turn parts
+      const modelTurn = geminiMessage.serverContent?.modelTurn;
+      if (!modelTurn || !modelTurn.parts || modelTurn.parts.length === 0) {
+        return; // No content to process
+      }
+
+      const isFinal = geminiMessage.serverContent?.turnComplete || false;
+
+      // Process each part of the response
+      for (const part of modelTurn.parts) {
+        // Handle text content
+        if (part.text) {
+          const textMessage: ModelTextMessage = {
+            type: 'model_text',
+            payload: {
+              text: part.text,
+              isFinal,
+              metadata: {
+                responseType: this.inferResponseType(part.text),
+              },
+            },
+            sessionId,
+            timestamp: Date.now(),
+          };
+
+          this.broadcastToSession(sessionId, textMessage);
+
+          // Also create a feedback entry for persistence
+          this.createFeedbackFromText(sessionId, part.text, isFinal);
+        }
+
+        // Handle audio content
+        if (part.inlineData?.mimeType === 'audio/pcm' && part.inlineData.data) {
+          const audioMessage: ModelAudioMessage = {
+            type: 'model_audio',
+            payload: {
+              audioData: part.inlineData.data,
+              isFinal,
+            },
+            sessionId,
+            timestamp: Date.now(),
+          };
+
+          this.broadcastToSession(sessionId, audioMessage);
+        }
+
+        // Handle function calls (tool calls)
+        if (part.functionCall) {
+          const toolCallMessage: ModelToolCallMessage = {
+            type: 'model_tool_call',
+            payload: {
+              tool: part.functionCall.name,
+              args: part.functionCall.args || {},
+              toolCallId: uuidv4(),
+            },
+            sessionId,
+            timestamp: Date.now(),
+          };
+
+          this.broadcastToSession(sessionId, toolCallMessage);
+        }
+      }
+    } catch (error) {
+      console.error('[WebSocketService] Error handling Gemini message:', error);
+
+      // Send error to active session if we have one
+      if (this.activeGeminiSessionId) {
+        this.broadcastToSession(this.activeGeminiSessionId, {
+          type: 'error',
+          payload: {
+            message: 'Failed to process AI response',
+            code: 'GEMINI_PARSE_ERROR',
+          },
+          sessionId: this.activeGeminiSessionId,
+          timestamp: Date.now(),
+        });
+      }
+    }
+  }
+
+  /**
+   * Infers the type of response from text content
+   */
+  private inferResponseType(text: string): 'hint' | 'question' | 'observation' | 'encouragement' {
+    const lowerText = text.toLowerCase();
+
+    if (lowerText.includes('hint') || lowerText.includes('try') || lowerText.includes('consider')) {
+      return 'hint';
+    }
+
+    if (lowerText.includes('?')) {
+      return 'question';
+    }
+
+    if (lowerText.includes('good') || lowerText.includes('nice') || lowerText.includes('great')) {
+      return 'encouragement';
+    }
+
+    return 'observation';
+  }
+
+  /**
+   * Creates a persistent feedback entry from AI text response
+   */
+  private createFeedbackFromText(sessionId: string, text: string, isFinal: boolean) {
+    // Only create feedback for final messages to avoid duplicates
+    if (!isFinal) return;
+
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+
+    const feedback: Feedback = {
+      id: uuidv4(),
+      sessionId,
+      type: 'interviewer',
+      content: text,
+      trigger: {
+        type: 'analysis',
+        details: 'AI-generated response from Gemini Live',
+      },
+      acknowledged: false,
+      timestamp: new Date(),
+    };
+
+    session.feedback.push(feedback);
+    session.metrics.feedbackCount++;
+
+    // Also send as structured feedback message
+    this.broadcastToSession(sessionId, {
+      type: 'feedback',
+      payload: feedback,
+      sessionId,
+      timestamp: Date.now(),
     });
   }
 

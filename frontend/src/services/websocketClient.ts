@@ -6,6 +6,12 @@ export class WebSocketClient {
   private ws: WebSocket | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
 
+  private send(message: any) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(message));
+    }
+  }
+
   connect(sessionId: string, isCandidate: boolean = true): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
@@ -52,19 +58,83 @@ export class WebSocketClient {
     switch (message.type) {
       case 'session_joined':
         useInterviewStore.getState().joinSession();
+        console.log('[WebSocket] Joined session:', message.payload.sessionId);
+        break;
+
+      case 'model_text':
+        // AI interviewer text response
+        console.log('[WebSocket] AI text:', message.payload.text);
+
+        // Add to feedback panel for visibility
+        addFeedback({
+          id: `model-${Date.now()}`,
+          type: 'interviewer',
+          content: message.payload.text,
+          trigger: {
+            type: 'analysis',
+            details: message.payload.metadata?.responseType || 'AI response',
+          },
+          timestamp: new Date(message.timestamp),
+          acknowledged: false,
+        });
+        break;
+
+      case 'model_audio':
+        // AI interviewer voice response
+        console.log('[WebSocket] AI audio chunk received:', message.payload.audioData.length, 'bytes',
+                    'isFinal:', message.payload.isFinal);
+
+        // TODO: Queue for Web Audio API playback (Task 1.4.2)
+        // For now, we log that audio was received
+        // Future: this.audioPlaybackQueue.enqueue(message.payload.audioData);
+        break;
+
+      case 'model_interruption':
+        // AI was interrupted by user
+        console.log('[WebSocket] AI interrupted:', message.payload.reason);
+
+        // TODO: Stop audio playback and clear queue (Task 1.4.2)
+        // this.audioPlaybackQueue.clear();
+        // this.audioPlaybackQueue.stop();
+        break;
+
+      case 'model_tool_call':
+        // AI wants to execute a tool (e.g., update code editor)
+        console.log('[WebSocket] AI tool call:', message.payload.tool, message.payload.args);
+
+        // TODO: Implement tool call dispatcher (Task 1.5.2)
+        // this.executeToolCall(message.payload);
         break;
 
       case 'feedback':
+        // Structured feedback from backend
         addFeedback(message.payload);
         break;
 
       case 'session_update':
         // Handle session status updates
+        console.log('[WebSocket] Session update:', message.payload.status);
         break;
 
       case 'error':
-        console.error('WebSocket error:', message.payload);
+        console.error('[WebSocket] Error:', message.payload.message);
+
+        // Show error in UI
+        addFeedback({
+          id: `error-${Date.now()}`,
+          type: 'correction',
+          content: `Error: ${message.payload.message}`,
+          trigger: {
+            type: 'manual',
+            details: message.payload.code || 'WEBSOCKET_ERROR',
+          },
+          timestamp: new Date(message.timestamp),
+          acknowledged: false,
+        });
         break;
+
+      default:
+        console.warn('[WebSocket] Unknown message type:', message.type);
     }
   }
 
