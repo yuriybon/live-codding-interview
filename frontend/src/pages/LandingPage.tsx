@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { NavBar } from '../components/NavBar';
 import { Card, Badge, Button, SectionHeader } from '../components/primitives';
+import { SessionConfigModal } from '../components/SessionConfigModal';
 
 function LandingPage() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ function LandingPage() {
   
   const [candidateName, setCandidateName] = useState('');
   const [starting, setStarting] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const [localError, setLocalError] = useState('');
 
   useEffect(() => {
@@ -42,14 +44,19 @@ function LandingPage() {
     }
   }, [isAuthenticated, location, navigate]);
 
-  const startInterview = async () => {
+  const handleOpenConfigModal = () => {
+    setShowConfigModal(true);
+  };
+
+  const startInterview = async (config: { language: string; exerciseId: string }) => {
     setStarting(true);
     setLocalError('');
 
     try {
-      // In a real app this would likely come from user selection/session prep
       const response = await axios.post('/api/sessions/new', {
         candidateName: candidateName || user?.name || 'Anonymous',
+        language: config.language,
+        exerciseId: config.exerciseId
       });
 
       if (response.data.sessionId) {
@@ -60,6 +67,7 @@ function LandingPage() {
       console.error('Error starting interview:', err);
     } finally {
       setStarting(false);
+      setShowConfigModal(false);
     }
   };
 
@@ -134,7 +142,7 @@ function LandingPage() {
               )}
 
               <Button
-                onClick={startInterview}
+                onClick={handleOpenConfigModal}
                 disabled={starting}
                 variant="primary"
                 size="lg"
@@ -145,6 +153,14 @@ function LandingPage() {
             </div>
           )}
         </Card>
+
+        {showConfigModal && (
+          <SessionConfigModal 
+            onStart={startInterview} 
+            onCancel={() => setShowConfigModal(false)}
+            isLoading={starting}
+          />
+        )}
 
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card variant="secondary">

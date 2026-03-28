@@ -1,9 +1,10 @@
 ---
 id: TASK-6.6
 title: 'Task 6.2.1: [Frontend] Session Configuration UI'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:42'
+updated_date: '2026-03-28 15:54'
 labels:
   - frontend
   - ui
@@ -21,6 +22,6 @@ priority: high
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A React `SessionConfigModal` component is built allowing selection of Language and Interview Type.
-- [ ] #2 Submitting the modal calls the `POST /api/sessions` endpoint with the selected data and redirects the user to `/room/:sessionId` on success.
+- [x] #1 A React `SessionConfigModal` component is built allowing selection of Language and Interview Type.
+- [x] #2 Submitting the modal calls the `POST /api/sessions` endpoint with the selected data and redirects the user to `/room/:sessionId` on success.
 <!-- AC:END -->

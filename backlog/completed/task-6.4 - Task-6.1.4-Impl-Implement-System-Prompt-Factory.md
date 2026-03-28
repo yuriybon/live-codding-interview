@@ -1,10 +1,10 @@
 ---
 id: TASK-6.4
 title: 'Task 6.1.4: [Impl] Implement System Prompt Factory'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-03-28 07:41'
-updated_date: '2026-03-28 15:47'
+updated_date: '2026-03-28 15:48'
 labels:
   - tdd-impl
   - backend
@@ -23,5 +23,5 @@ priority: high
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `PromptFactory` utility is implemented utilizing the prompt templates defined in `doc-2` and correctly passes the factory unit tests.
+- [x] #1 `PromptFactory` utility is implemented utilizing the prompt templates defined in `doc-2` and correctly passes the factory unit tests.
 <!-- AC:END -->

@@ -235,62 +235,67 @@ function InterviewRoom() {
   const unacknowledgedFeedback = feedback.filter(f => !f.acknowledged);
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
       {/* Navigation Bar with User Avatar */}
       <NavBar />
 
       {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 px-6 py-4">
+      <header className="bg-slate-900/70 border-b border-slate-800/80 px-6 py-4 backdrop-blur">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-xl font-semibold text-white">Interview Session</h1>
-            <span className="text-sm text-gray-400">{sessionId?.slice(0, 8)}</span>
+            <h1 className="text-xl font-semibold text-slate-100">Interview Session</h1>
+            <span className="text-sm text-slate-400 font-mono">{sessionId?.slice(0, 8)}</span>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
             {/* Timer */}
-            <div className="flex items-center gap-2 text-gray-300">
-              <Clock className="w-4 h-4" />
-              <span className="font-mono">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700/50">
+              <Clock className="w-4 h-4 text-cyan-400" />
+              <span className="font-mono text-sm text-slate-200">
                 {Math.floor(sessionMetrics.totalTime / 60)}:{String(sessionMetrics.totalTime % 60).padStart(2, '0')}
               </span>
             </div>
 
+            <div className="h-6 w-px bg-slate-700" />
+
             {/* Audio Toggle */}
             <button
               onClick={toggleAudio}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium ${
                 isListening
-                  ? 'bg-red-600 text-white hover:bg-red-700'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  ? 'bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/30'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
               }`}
             >
               {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              <span>{isListening ? 'Stop Recording' : 'Start Recording'}</span>
+              <span className="text-sm">{isListening ? 'Stop' : 'Record'}</span>
             </button>
 
             {/* Screen Share Toggle */}
             <button
               onClick={toggleScreenShare}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium ${
                 isSharing
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/30'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
               }`}
               title={shareError || undefined}
             >
               {isSharing ? <MonitorOff className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
-              <span>{isSharing ? 'Stop Sharing' : 'Share Screen'}</span>
+              <span className="text-sm">{isSharing ? 'Stop' : 'Share'}</span>
             </button>
+
+            <div className="h-6 w-px bg-slate-700" />
 
             {/* Request Help */}
             <Button
               onClick={() => requestFeedback('Need a hint')}
               variant="primary"
               size="sm"
+              className="bg-cyan-500 hover:bg-cyan-400 text-slate-950"
             >
               <AlertCircle className="w-4 h-4" />
-              <span>Request Hint</span>
+              <span>Hint</span>
             </Button>
 
             {/* End Interview */}
@@ -300,7 +305,7 @@ function InterviewRoom() {
               size="sm"
             >
               <StopCircle className="w-4 h-4" />
-              <span>End Interview</span>
+              <span>End</span>
             </Button>
           </div>
         </div>
@@ -311,10 +316,10 @@ function InterviewRoom() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Code Editor */}
           <div className="lg:col-span-2">
-            <Card variant="primary" className="overflow-hidden p-0">
-              <div className="bg-gray-700 px-4 py-2 flex items-center justify-between">
-                <span className="text-sm text-gray-300">solution.ts</span>
-                <span className="text-xs text-gray-400">TypeScript</span>
+            <Card variant="primary" className="overflow-hidden p-0 border border-slate-800 bg-slate-900/90">
+              <div className="bg-slate-800/80 px-4 py-2.5 flex items-center justify-between border-b border-slate-700/50">
+                <span className="text-sm font-medium text-slate-200">solution.ts</span>
+                <span className="text-xs text-slate-400 uppercase tracking-wide">TypeScript</span>
               </div>
               <Editor
                 height="600px"
@@ -339,10 +344,10 @@ function InterviewRoom() {
             <AiVisualizer isSpeaking={isAISpeaking} />
 
             {/* Feedback Panel */}
-            <Card variant="primary" className="p-4">
+            <Card variant="primary" className="p-4 border border-slate-800 bg-slate-900/90">
               <div className="flex items-center gap-2 mb-4">
-                <MessageSquare className="w-5 h-5 text-blue-400" />
-                <h2 className="text-lg font-semibold text-white">Coach Feedback</h2>
+                <MessageSquare className="w-5 h-5 text-cyan-400" />
+                <h2 className="text-lg font-semibold text-slate-100">Coach Feedback</h2>
               </div>
 
               {unacknowledgedFeedback.length > 0 ? (
@@ -350,20 +355,20 @@ function InterviewRoom() {
                   {unacknowledgedFeedback.map((fb) => (
                     <div
                       key={fb.id}
-                      className="bg-blue-900/30 border border-blue-800 rounded-lg p-3"
+                      className="bg-cyan-900/20 border border-cyan-500/30 rounded-lg p-3 backdrop-blur-sm"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <p className="text-blue-200 text-sm">{fb.content}</p>
+                          <p className="text-cyan-100 text-sm leading-relaxed">{fb.content}</p>
                           {fb.trigger.details && (
-                            <p className="text-blue-400 text-xs mt-1">
+                            <p className="text-cyan-400 text-xs mt-1.5 font-medium">
                               {fb.trigger.details}
                             </p>
                           )}
                         </div>
                         <button
                           onClick={() => acknowledgeFeedback(fb.id)}
-                          className="text-blue-400 hover:text-blue-300"
+                          className="text-cyan-400 hover:text-cyan-300 transition-colors"
                         >
                           ✓
                         </button>
@@ -372,44 +377,50 @@ function InterviewRoom() {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-400 text-sm text-center py-4">
+                <p className="text-slate-400 text-sm text-center py-4">
                   No feedback yet. Keep working!
                 </p>
               )}
             </Card>
 
             {/* Metrics Panel */}
-            <Card variant="primary" className="p-4">
-              <h2 className="text-lg font-semibold text-white mb-4">Session Stats</h2>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between text-gray-300">
-                  <span>Time Active</span>
-                  <span>{Math.floor(sessionMetrics.totalTime / 60)} min</span>
+            <Card variant="primary" className="p-4 border border-slate-800 bg-slate-900/90">
+              <h2 className="text-lg font-semibold text-slate-100 mb-4">Session Stats</h2>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between items-center py-1.5">
+                  <span className="text-slate-400">Time Active</span>
+                  <span className="text-slate-200 font-medium">{Math.floor(sessionMetrics.totalTime / 60)} min</span>
                 </div>
-                <div className="flex justify-between text-gray-300">
-                  <span>Lines Written</span>
-                  <span>{sessionMetrics.codeLinesWritten}</span>
+                <div className="h-px bg-slate-800" />
+                <div className="flex justify-between items-center py-1.5">
+                  <span className="text-slate-400">Lines Written</span>
+                  <span className="text-cyan-400 font-medium">{sessionMetrics.codeLinesWritten}</span>
                 </div>
-                <div className="flex justify-between text-gray-300">
-                  <span>Hints Requested</span>
-                  <span>{sessionMetrics.hintsRequested}</span>
+                <div className="h-px bg-slate-800" />
+                <div className="flex justify-between items-center py-1.5">
+                  <span className="text-slate-400">Hints Requested</span>
+                  <span className="text-slate-200 font-medium">{sessionMetrics.hintsRequested}</span>
                 </div>
-                <div className="flex justify-between text-gray-300">
-                  <span>Feedback Received</span>
-                  <span>{sessionMetrics.feedbackCount}</span>
+                <div className="h-px bg-slate-800" />
+                <div className="flex justify-between items-center py-1.5">
+                  <span className="text-slate-400">Feedback Received</span>
+                  <span className="text-slate-200 font-medium">{sessionMetrics.feedbackCount}</span>
                 </div>
               </div>
             </Card>
 
             {/* Screen Share Preview */}
             {isSharing && (
-              <Card variant="primary" className="p-4">
+              <Card variant="primary" className="p-4 border border-emerald-500/30 bg-slate-900/90">
                 <div className="flex items-center gap-2 mb-4">
-                  <Monitor className="w-5 h-5 text-green-400" />
-                  <h2 className="text-lg font-semibold text-white">Screen Share</h2>
-                  <span className="ml-auto text-xs text-green-400">● Live</span>
+                  <Monitor className="w-5 h-5 text-emerald-400" />
+                  <h2 className="text-lg font-semibold text-slate-100">Screen Share</h2>
+                  <span className="ml-auto text-xs text-emerald-400 flex items-center gap-1.5">
+                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                    Live
+                  </span>
                 </div>
-                <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
+                <div className="relative bg-slate-950 rounded-lg overflow-hidden aspect-video border border-slate-800">
                   <video
                     ref={videoPreviewRef}
                     autoPlay
@@ -422,7 +433,7 @@ function InterviewRoom() {
 
             {/* Share Error Message */}
             {shareError && (
-              <div className="bg-red-900/30 border border-red-800 rounded-xl p-4 shadow-xl">
+              <div className="bg-red-900/20 border border-red-500/40 rounded-xl p-4 shadow-xl backdrop-blur-sm">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-5 h-5 text-red-400" />
                   <p className="text-red-200 text-sm">{shareError}</p>
@@ -431,15 +442,15 @@ function InterviewRoom() {
             )}
 
             {/* Transcript Preview */}
-            <div className="bg-gray-800 rounded-xl p-4 shadow-xl">
+            <Card variant="primary" className="p-4 border border-slate-800 bg-slate-900/90">
               <div className="flex items-center gap-2 mb-4">
-                <Mic className="w-5 h-5 text-green-400" />
-                <h2 className="text-lg font-semibold text-white">Your Speech</h2>
+                <Mic className="w-5 h-5 text-cyan-400" />
+                <h2 className="text-lg font-semibold text-slate-100">Your Speech</h2>
               </div>
-              <p className="text-gray-400 text-sm italic">
+              <p className="text-slate-400 text-sm italic">
                 Speak to see your transcript...
               </p>
-            </div>
+            </Card>
           </div>
         </div>
       </main>

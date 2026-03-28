@@ -1,9 +1,10 @@
 ---
 id: TASK-6.5
 title: 'Task 6.1.5: [Impl] Inject Dynamic Prompt into Gemini Session'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:42'
+updated_date: '2026-03-28 15:51'
 labels:
   - backend
   - websocket
@@ -21,5 +22,5 @@ priority: high
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 When a WebSocket connects to a specific `sessionId`, the `GeminiLiveClient` is initialized with the `PromptFactory.generate(config)` output rather than the static `process.env.GEMINI_SYSTEM_PROMPT`.
+- [x] #1 When a WebSocket connects to a specific `sessionId`, the `GeminiLiveClient` is initialized with the `PromptFactory.generate(config)` output rather than the static `process.env.GEMINI_SYSTEM_PROMPT`.
 <!-- AC:END -->

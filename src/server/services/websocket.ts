@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { vertexAI } from './vertex-ai';
 import { GeminiLiveClient } from './gemini-live';
+import { PromptFactory } from '../utils/prompt-factory';
 import {
   GeminiLiveMessage,
   ModelTextMessage,
@@ -67,35 +68,46 @@ export class WebSocketService {
     });
   }
 
-  private async setupGeminiClient() {
+  private async setupGeminiClient(session?: InterviewSession) {
     // Skip setup if geminiClient already exists (e.g., injected for testing)
-    if (this.geminiClient) {
+    if (this.geminiClient && this.geminiClient.isConnected()) {
       return;
     }
 
     try {
-      this.geminiClient = new GeminiLiveClient();
+      if (!this.geminiClient) {
+        this.geminiClient = new GeminiLiveClient();
 
-      // Set up event handlers for Gemini client
-      this.geminiClient.on('connected', () => {
-        console.log('[WebSocketService] Connected to Gemini Live API');
-      });
+        // Set up event handlers for Gemini client
+        this.geminiClient.on('connected', () => {
+          console.log('[WebSocketService] Connected to Gemini Live API');
+        });
 
-      this.geminiClient.on('disconnected', () => {
-        console.log('[WebSocketService] Disconnected from Gemini Live API');
-      });
+        this.geminiClient.on('disconnected', () => {
+          console.log('[WebSocketService] Disconnected from Gemini Live API');
+        });
 
-      this.geminiClient.on('message', (message) => {
-        // Handle responses from Gemini and broadcast to clients
-        this.handleGeminiMessage(message);
-      });
+        this.geminiClient.on('message', (message) => {
+          // Handle responses from Gemini and broadcast to clients
+          this.handleGeminiMessage(message);
+        });
 
-      this.geminiClient.on('error', (error) => {
-        console.error('[WebSocketService] Gemini client error:', error);
-      });
+        this.geminiClient.on('error', (error) => {
+          console.error('[WebSocketService] Gemini client error:', error);
+        });
+      }
+
+      // Generate dynamic prompt if session config is available
+      let systemInstructionText;
+      if (session && session.language && session.exerciseId) {
+        systemInstructionText = PromptFactory.generate({
+          language: session.language,
+          exerciseId: session.exerciseId
+        });
+      }
 
       // Connect to Gemini Live API
-      await this.geminiClient.connect();
+      await this.geminiClient.connect(systemInstructionText);
     } catch (error) {
       console.error('[WebSocketService] Failed to connect to Gemini:', error);
       // Continue without Gemini - service can still handle local operations
@@ -278,6 +290,11 @@ export class WebSocketService {
     if (isCandidate) {
       session.status = 'active';
       session.updatedAt = new Date();
+
+      // Connect Gemini specifically for this session if it's not connected
+      if (env.NODE_ENV !== 'test' && (!this.geminiClient || !this.geminiClient.isConnected())) {
+         this.setupGeminiClient(session).catch(console.error);
+      }
     }
 
     this.sessions.set(sessionId, session);
@@ -514,7 +531,7 @@ export class WebSocketService {
 
       // Extract and process model turn parts
       const modelTurn = geminiMessage.serverContent?.modelTurn;
-      if (!modelTurn || !modelTurn.parts || modelTurn.parts.length === 0) {
+      if (!modelTurn || !Array.isArray(modelTurn.parts) || modelTurn.parts.length === 0) {
         return; // No content to process
       }
 
@@ -522,6 +539,10 @@ export class WebSocketService {
 
       // Process each part of the response
       for (const part of modelTurn.parts) {
+        if (!part || typeof part !== 'object') {
+          continue;
+        }
+
         // Handle text content
         if (part.text) {
           const textMessage: ModelTextMessage = {
@@ -544,7 +565,7 @@ export class WebSocketService {
         }
 
         // Handle audio content
-        if (part.inlineData?.mimeType === 'audio/pcm' && part.inlineData.data) {
+        if (this.isPcmAudioMimeType(part.inlineData?.mimeType) && part.inlineData?.data) {
           const audioMessage: ModelAudioMessage = {
             type: 'model_audio',
             payload: {
@@ -560,12 +581,15 @@ export class WebSocketService {
 
         // Handle function calls (tool calls)
         if (part.functionCall) {
+          const toolCallId = this.normalizeToolCallId(part.functionCall.id);
+          const normalizedArgs = this.normalizeFunctionArgs(part.functionCall.args);
+
           const toolCallMessage: ModelToolCallMessage = {
             type: 'model_tool_call',
             payload: {
               tool: part.functionCall.name,
-              args: part.functionCall.args || {},
-              toolCallId: uuidv4(),
+              args: normalizedArgs,
+              toolCallId,
             },
             sessionId,
             timestamp: Date.now(),
@@ -590,6 +614,33 @@ export class WebSocketService {
         });
       }
     }
+  }
+
+  private isPcmAudioMimeType(mimeType: unknown): boolean {
+    return typeof mimeType === 'string' && mimeType.toLowerCase().startsWith('audio/pcm');
+  }
+
+  private normalizeToolCallId(rawId: unknown): string {
+    return typeof rawId === 'string' && rawId.trim().length > 0 ? rawId : uuidv4();
+  }
+
+  private normalizeFunctionArgs(rawArgs: unknown): Record<string, unknown> {
+    if (rawArgs && typeof rawArgs === 'object' && !Array.isArray(rawArgs)) {
+      return rawArgs as Record<string, unknown>;
+    }
+
+    if (typeof rawArgs === 'string') {
+      try {
+        const parsed = JSON.parse(rawArgs);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        // Fall through to empty args
+      }
+    }
+
+    return {};
   }
 
   /**

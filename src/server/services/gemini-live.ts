@@ -49,7 +49,7 @@ export class GeminiLiveClient extends EventEmitter {
    *
    * @throws Error if authentication fails or connection cannot be established
    */
-  async connect(): Promise<void> {
+  async connect(systemInstructionText?: string): Promise<void> {
     try {
       // Step 1: Fetch access token for authentication
       const accessToken = await this.auth.getAccessToken();
@@ -71,7 +71,7 @@ export class GeminiLiveClient extends EventEmitter {
       await this.waitForConnection();
 
       // Step 4: Send initial setup message
-      await this.sendSetupMessage();
+      await this.sendSetupMessage(systemInstructionText);
 
       this.connected = true;
       this.emit('connected');
@@ -178,7 +178,18 @@ export class GeminiLiveClient extends EventEmitter {
    * - Generation configuration (temperature, response modalities)
    * - Tool declarations (coding task setup)
    */
-  private async sendSetupMessage(): Promise<void> {
+  private async sendSetupMessage(systemInstructionText?: string): Promise<void> {
+    const text = systemInstructionText || `You are Alex, a senior technical interviewer and software architect conducting a live coding interview.
+Your role is to:
+- Observe the candidate's code in real-time through their screen share. Comment on their implementation choices, variable naming, and algorithmic efficiency as they type.
+- Listen to their verbal explanation and thought process. If they are quiet for too long while typing, encourage them to think out loud.
+- Provide constructive feedback and gentle hints only when they are clearly stuck or heading towards a major pitfall.
+- Look for specific events: watch for terminal output, test failures, or syntax errors, and ask the candidate how they plan to debug them.
+- Ask deep follow-up questions about time/space complexity, edge cases, and architectural trade-offs.
+- Maintain a supportive, professional, and slightly inquisitive "Senior Architect" persona.
+
+Be concise in your verbal responses to avoid interrupting the candidate's flow. Your goal is to evaluate both their technical ability and their communication skills.`;
+
     const setupMessage = {
       setup: {
         model: `projects/${env.GCP_PROJECT_ID}/locations/${env.GCP_LOCATION}/publishers/google/models/${env.GEMINI_REALTIME_MODEL}`,
@@ -195,16 +206,7 @@ export class GeminiLiveClient extends EventEmitter {
         system_instruction: {
           parts: [
             {
-              text: `You are Alex, a senior technical interviewer and software architect conducting a live coding interview.
-Your role is to:
-- Observe the candidate's code in real-time through their screen share. Comment on their implementation choices, variable naming, and algorithmic efficiency as they type.
-- Listen to their verbal explanation and thought process. If they are quiet for too long while typing, encourage them to think out loud.
-- Provide constructive feedback and gentle hints only when they are clearly stuck or heading towards a major pitfall.
-- Look for specific events: watch for terminal output, test failures, or syntax errors, and ask the candidate how they plan to debug them.
-- Ask deep follow-up questions about time/space complexity, edge cases, and architectural trade-offs.
-- Maintain a supportive, professional, and slightly inquisitive "Senior Architect" persona.
-
-Be concise in your verbal responses to avoid interrupting the candidate's flow. Your goal is to evaluate both their technical ability and their communication skills.`,
+              text,
             },
           ],
         },
