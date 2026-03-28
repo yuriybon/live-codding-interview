@@ -1,9 +1,10 @@
 ---
 id: TASK-12.7
 title: 'Task 12.7: [Ops] Add websocket diagnostics and failure telemetry'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-03-28 13:52'
+updated_date: '2026-03-28 16:18'
 labels:
   - backend
   - frontend

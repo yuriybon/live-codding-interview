@@ -27,6 +27,7 @@ interface ClientData {
   hasStartedSession?: boolean;
   isCandidate: boolean;
   lastActivity: number;
+  lastCorrelationId?: string;
 }
 
 interface WebSocketMessage {
@@ -34,6 +35,7 @@ interface WebSocketMessage {
   payload: any;
   sessionId: string;
   timestamp: number;
+  correlationId?: string;
 }
 
 interface StartSessionConfig {
@@ -69,7 +71,10 @@ export class WebSocketService {
       this.setupGeminiClient();
     }
 
-    console.log(`WebSocket server started on port ${port}`);
+    this.logDiagnostic('info', 'server_started', {
+      port,
+      nodeEnv: env.NODE_ENV,
+    });
   }
 
   private setupEventHandlers() {
@@ -78,7 +83,10 @@ export class WebSocketService {
     });
 
     this.wss.on('error', (error) => {
-      console.error('WebSocket server error:', error);
+      this.logDiagnostic('error', 'server_error', {
+        failureSource: 'backend_routing',
+        reason: error instanceof Error ? error.message : 'Unknown server error',
+      });
     });
   }
 
@@ -143,18 +151,32 @@ export class WebSocketService {
       hasJoinedSession: false,
       isCandidate: false,
       lastActivity: Date.now(),
+      lastCorrelationId: clientId,
+    });
+
+    this.logDiagnostic('info', 'connection_open', {
+      clientId,
+      sessionId: clientId,
+      correlationId: clientId,
     });
 
     ws.on('message', (data) => {
       this.handleMessage(ws, data);
     });
 
-    ws.on('close', () => {
-      this.handleDisconnect(ws);
+    ws.on('close', (code, reason) => {
+      this.handleDisconnect(ws, code, reason?.toString());
     });
 
     ws.on('error', (error) => {
-      console.error('WebSocket client error:', error);
+      const clientData = this.clients.get(ws);
+      this.logDiagnostic('error', 'connection_error', {
+        clientId: clientData?.clientId,
+        sessionId: clientData?.sessionId,
+        correlationId: clientData?.lastCorrelationId,
+        failureSource: 'backend_routing',
+        reason: error instanceof Error ? error.message : 'Unknown client socket error',
+      });
     });
 
     // Send welcome message
@@ -166,6 +188,7 @@ export class WebSocketService {
       },
       sessionId: clientId,
       timestamp: Date.now(),
+      correlationId: clientId,
     });
   }
 

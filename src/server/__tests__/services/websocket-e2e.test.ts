@@ -352,6 +352,104 @@ describe('WebSocket End-to-End Smoke Test (TASK-12.6)', () => {
   });
 
   /**
+   * Parity test: Boxing-coach realtime_input format for audio
+   */
+  it('should handle realtime_input audio format matching boxing-coach parity', async () => {
+    // Connect client
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockWs);
+
+    // Join and start session
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(
+      mockWs,
+      JSON.stringify({
+        type: 'join_session',
+        payload: { sessionId: 'parity-audio-test', isCandidate: true },
+        sessionId: 'parity-audio-test',
+        timestamp: Date.now(),
+      })
+    );
+
+    await messageHandler(
+      mockWs,
+      JSON.stringify({
+        type: 'start_session',
+        payload: { config: {} },
+        sessionId: 'parity-audio-test',
+        timestamp: Date.now(),
+      })
+    );
+
+    // Send realtime_input with audio/pcm mime type (boxing-coach format)
+    mockGeminiClient.sendAudio.mockClear();
+    await messageHandler(
+      mockWs,
+      JSON.stringify({
+        type: 'realtime_input',
+        media: {
+          data: 'cGNtMTZhdWRpb2RhdGE=', // base64: "pcm16audiodata"
+          mimeType: 'audio/pcm;rate=16000',
+        },
+        sessionId: 'parity-audio-test',
+        timestamp: Date.now(),
+      })
+    );
+
+    // Verify audio was relayed to Gemini with correct format
+    expect(mockGeminiClient.sendAudio).toHaveBeenCalledWith('cGNtMTZhdWRpb2RhdGE=');
+  });
+
+  /**
+   * Parity test: Boxing-coach realtime_input format for video
+   */
+  it('should handle realtime_input video format matching boxing-coach parity', async () => {
+    // Connect client
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockWs);
+
+    // Join and start session
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(
+      mockWs,
+      JSON.stringify({
+        type: 'join_session',
+        payload: { sessionId: 'parity-video-test', isCandidate: true },
+        sessionId: 'parity-video-test',
+        timestamp: Date.now(),
+      })
+    );
+
+    await messageHandler(
+      mockWs,
+      JSON.stringify({
+        type: 'start_session',
+        payload: { config: {} },
+        sessionId: 'parity-video-test',
+        timestamp: Date.now(),
+      })
+    );
+
+    // Send realtime_input with image/jpeg mime type (boxing-coach format)
+    mockGeminiClient.sendVideoFrame.mockClear();
+    await messageHandler(
+      mockWs,
+      JSON.stringify({
+        type: 'realtime_input',
+        media: {
+          data: 'anBlZ2ZyYW1lZGF0YQ==', // base64: "jpegframedata"
+          mimeType: 'image/jpeg',
+        },
+        sessionId: 'parity-video-test',
+        timestamp: Date.now(),
+      })
+    );
+
+    // Verify video frame was relayed to Gemini with correct format
+    expect(mockGeminiClient.sendVideoFrame).toHaveBeenCalledWith('anBlZ2ZyYW1lZGF0YQ==');
+  });
+
+  /**
    * Smoke test: Tool response handling
    */
   it('should handle tool_response messages and relay to Gemini', async () => {

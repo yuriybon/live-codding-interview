@@ -207,18 +207,24 @@ export class WebSocketClient {
     );
   }
 
+  /**
+   * Send raw PCM16 audio data using boxing-coach parity format
+   * Uses unified realtime_input message type with audio/pcm mime type
+   * @param base64Audio - Base64-encoded PCM16 audio data
+   */
   sendRawAudio(base64Audio: string) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
     const { sessionId } = useInterviewStore.getState();
     if (!sessionId) return;
 
+    // Boxing-coach parity: Use realtime_input with media.mimeType
     this.ws.send(
       JSON.stringify({
-        type: 'audio_segment',
-        payload: {
-          audioData: base64Audio,
-          timestamp: Date.now(),
+        type: 'realtime_input',
+        media: {
+          data: base64Audio,
+          mimeType: 'audio/pcm;rate=16000',
         },
         sessionId,
         timestamp: Date.now(),
@@ -247,9 +253,10 @@ export class WebSocketClient {
   }
 
   /**
-   * Send screen frame with base64-encoded JPEG image data
+   * Send screen frame with base64-encoded JPEG image data using boxing-coach parity format
+   * Uses unified realtime_input message type with image/jpeg mime type
    * @param imageData - Base64-encoded JPEG image (without data:image/jpeg;base64, prefix)
-   * @param hasCodeChanges - Whether code has changed since last frame
+   * @param hasCodeChanges - Whether code has changed since last frame (tracked for analytics)
    */
   sendScreenFrame(imageData: string, hasCodeChanges: boolean = false) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
@@ -257,13 +264,14 @@ export class WebSocketClient {
     const { sessionId } = useInterviewStore.getState();
     if (!sessionId) return;
 
+    // Boxing-coach parity: Use realtime_input with media.mimeType
+    // Note: hasCodeChanges is tracked separately for metrics but not in the media payload
     this.ws.send(
       JSON.stringify({
-        type: 'screen_frame',
-        payload: {
-          imageData,
-          hasCodeChanges,
-          timestamp: Date.now(),
+        type: 'realtime_input',
+        media: {
+          data: imageData,
+          mimeType: 'image/jpeg',
         },
         sessionId,
         timestamp: Date.now(),
