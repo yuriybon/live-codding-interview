@@ -28,7 +28,15 @@ router.get('/', (req: Request, res: Response) => {
  */
 router.post('/new', async (req: Request, res: Response) => {
   try {
-    const { questionId, candidateName } = req.body;
+    const { questionId, candidateName, language, exerciseId } = req.body;
+
+    if (!language) {
+      return res.status(400).json({ error: 'Missing required field: language' });
+    }
+
+    if (!exerciseId) {
+      return res.status(400).json({ error: 'Missing required field: exerciseId' });
+    }
 
     const sessionId = uuidv4();
     
@@ -54,7 +62,7 @@ router.post('/new', async (req: Request, res: Response) => {
       },
     };
 
-    res.json({
+    res.status(201).json({
       sessionId,
       message: 'Session created successfully',
     });

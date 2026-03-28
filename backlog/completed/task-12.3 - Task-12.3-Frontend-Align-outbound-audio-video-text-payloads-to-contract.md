@@ -1,10 +1,10 @@
 ---
 id: TASK-12.3
 title: 'Task 12.3: [Frontend] Align outbound audio/video/text payloads to contract'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 13:51'
-updated_date: '2026-03-28 15:05'
+updated_date: '2026-03-28 15:18'
 labels:
   - frontend
   - websocket
@@ -28,7 +28,7 @@ Update client-side outbound websocket messages so microphone audio, screen frame
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Frontend outbound websocket payloads for audio/video/text validate against the canonical schema and are accepted by the backend without fallback parsing.
+- [x] #1 Frontend outbound websocket payloads for audio/video/text validate against the canonical schema and are accepted by the backend without fallback parsing.
 <!-- AC:END -->
 
 ## Implementation Notes

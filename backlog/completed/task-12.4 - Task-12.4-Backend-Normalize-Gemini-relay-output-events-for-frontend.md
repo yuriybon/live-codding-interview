@@ -1,10 +1,10 @@
 ---
 id: TASK-12.4
 title: 'Task 12.4: [Backend] Normalize Gemini relay output events for frontend'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 13:51'
-updated_date: '2026-03-28 15:05'
+updated_date: '2026-03-28 15:19'
 labels:
   - backend
   - websocket
@@ -27,7 +27,7 @@ Transform raw Gemini Live messages into stable app-level websocket event types s
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Backend emits documented app-level response events that map model output into predictable payloads without exposing raw provider-specific structures to the UI.
+- [x] #1 Backend emits documented app-level response events that map model output into predictable payloads without exposing raw provider-specific structures to the UI.
 <!-- AC:END -->
 
 ## Implementation Notes

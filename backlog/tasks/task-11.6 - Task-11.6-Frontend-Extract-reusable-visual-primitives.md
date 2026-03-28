@@ -1,9 +1,10 @@
 ---
 id: TASK-11.6
 title: 'Task 11.6: [Frontend] Extract reusable visual primitives'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-03-28 13:27'
+updated_date: '2026-03-28 15:32'
 labels:
   - frontend
   - ui

@@ -1,10 +1,10 @@
 ---
 id: TASK-12.5
 title: 'Task 12.5: [Frontend] Handle normalized model response events'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 13:51'
-updated_date: '2026-03-28 15:05'
+updated_date: '2026-03-28 15:20'
 labels:
   - frontend
   - websocket
@@ -29,7 +29,7 @@ Implement frontend handling for normalized model response events, including tran
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Frontend consumes normalized response events and visibly reflects model text/audio/tool outputs in the interview UI during a live session.
+- [x] #1 Frontend consumes normalized response events and visibly reflects model text/audio/tool outputs in the interview UI during a live session.
 <!-- AC:END -->
 
 ## Implementation Notes
