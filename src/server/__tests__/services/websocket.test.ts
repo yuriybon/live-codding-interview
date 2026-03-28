@@ -634,6 +634,47 @@ describe('WebSocketService - Session Lifecycle and Relay Parity', () => {
     ]);
   });
 
+  it('should accept stop_output and broadcast model_interruption to the session', async () => {
+    const broadcastSpy = jest.spyOn(wsService as any, 'broadcastToSession');
+
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    const clientData = {
+      clientId: 'client-lifecycle-4-stop',
+      sessionId: 'session-lifecycle-4-stop',
+      hasJoinedSession: true,
+      hasStartedSession: true,
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    const session = (wsService as any).createSession('session-lifecycle-4-stop');
+    (wsService as any).sessions.set('session-lifecycle-4-stop', session);
+
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(
+      mockClient,
+      JSON.stringify({
+        type: 'stop_output',
+        payload: { reason: 'user_speech' },
+        sessionId: 'session-lifecycle-4-stop',
+        timestamp: Date.now(),
+      })
+    );
+
+    expect(broadcastSpy).toHaveBeenCalledWith(
+      'session-lifecycle-4-stop',
+      expect.objectContaining({
+        type: 'model_interruption',
+        payload: { reason: 'user_speech' },
+      })
+    );
+
+    broadcastSpy.mockRestore();
+  });
+
   it('should attach correlation identifiers to server error responses for invalid payloads', async () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 

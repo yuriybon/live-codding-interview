@@ -18,6 +18,8 @@ interface InterviewState {
   isJoined: boolean;
   isRecording: boolean;
   isAudioEnabled: boolean;
+  isAISpeaking: boolean;
+  isUserSpeaking: boolean;
   feedback: Feedback[];
   transcript: string[];
   code: string;
@@ -41,6 +43,8 @@ interface InterviewState {
   leaveSession: () => void;
   toggleRecording: () => void;
   toggleAudio: () => void;
+  setAISpeaking: (isSpeaking: boolean) => void;
+  setUserSpeaking: (isSpeaking: boolean) => void;
   addFeedback: (feedback: Feedback) => void;
   acknowledgeFeedback: (feedbackId: string) => void;
   addTranscript: (text: string) => void;
@@ -55,6 +59,8 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
   isJoined: false,
   isRecording: false,
   isAudioEnabled: false,
+  isAISpeaking: false,
+  isUserSpeaking: false,
   feedback: [],
   transcript: [],
   code: '// Write your solution here\n\nfunction solution() {\n  // TODO: Implement your solution\n}\n',
@@ -77,6 +83,10 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
   toggleRecording: () => set((state) => ({ isRecording: !state.isRecording })),
 
   toggleAudio: () => set((state) => ({ isAudioEnabled: !state.isAudioEnabled })),
+
+  setAISpeaking: (isSpeaking) => set({ isAISpeaking: isSpeaking }),
+
+  setUserSpeaking: (isSpeaking) => set({ isUserSpeaking: isSpeaking }),
 
   addFeedback: (feedback) => set((state) => ({
     feedback: [...state.feedback, feedback],
@@ -140,6 +150,8 @@ export const useInterviewStore = create<InterviewState>((set, get) => ({
     set({
       isJoined: false,
       isRecording: false,
+      isAISpeaking: false,
+      isUserSpeaking: false,
       sessionId: null,
       code: '// Write your solution here\n\nfunction solution() {\n  // TODO: Implement your solution\n}\n',
       language: 'typescript',

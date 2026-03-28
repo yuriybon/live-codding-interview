@@ -109,6 +109,17 @@ export interface AcknowledgeFeedbackMessage extends BaseMessage {
 }
 
 /**
+ * Client requests immediate model output interruption
+ */
+export interface StopOutputMessage extends BaseMessage {
+  type: 'stop_output';
+  payload: {
+    /** Why output is being interrupted */
+    reason?: 'user_speech' | 'user_input';
+  };
+}
+
+/**
  * Union type for all client → server messages
  */
 export type ClientMessage =
@@ -117,7 +128,8 @@ export type ClientMessage =
   | ScreenFrameMessage
   | CodeUpdateMessage
   | RequestFeedbackMessage
-  | AcknowledgeFeedbackMessage;
+  | AcknowledgeFeedbackMessage
+  | StopOutputMessage;
 
 // ============================================================================
 // Server → Client Messages (Inbound)
@@ -336,6 +348,7 @@ export function isClientMessage(message: BaseMessage): message is ClientMessage 
     'code_update',
     'request_feedback',
     'acknowledge_feedback',
+    'stop_output',
   ].includes(message.type);
 }
 

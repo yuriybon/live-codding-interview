@@ -134,7 +134,7 @@ export class WebSocketClient {
   }
 
   private handleMessage(message: any) {
-    const { addFeedback, addTranscript, endSession } = useInterviewStore.getState();
+    const { addFeedback, addTranscript, endSession, setAISpeaking } = useInterviewStore.getState();
 
     switch (message.type) {
       case 'session_joined':
@@ -182,6 +182,7 @@ export class WebSocketClient {
 
         // Stop audio playback and clear queue
         audioPlaybackQueue.stop();
+        setAISpeaking(false);
         break;
 
       case 'model_tool_call':
@@ -339,6 +340,20 @@ export class WebSocketClient {
         data: base64Audio,
         mimeType: 'audio/pcm;rate=16000',
       },
+      sessionId,
+      timestamp: Date.now(),
+    });
+  }
+
+  sendStopOutput(reason: 'user_speech' | 'user_input' = 'user_speech') {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    const { sessionId } = useInterviewStore.getState();
+    if (!sessionId) return;
+
+    this.send({
+      type: 'stop_output',
+      payload: { reason },
       sessionId,
       timestamp: Date.now(),
     });
