@@ -1,9 +1,10 @@
 ---
 id: TASK-1.5.2
 title: 'Task 1.5.2: [Impl] Zustand Store Tool Calling & Editor Updates'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:27'
+updated_date: '2026-03-28 15:05'
 labels:
   - tdd-impl
   - frontend
@@ -33,6 +34,6 @@ Implement the Tool Call bridge that allows the AI to inject starter code and des
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The `useInterviewStore` successfully updates its state when processing a `setup_coding_task` tool call from the Gemini WebSocket.
-- [ ] #2 The Monaco editor immediately reflects the `language` and `starterCode` provided by the AI.
+- [x] #1 The `useInterviewStore` successfully updates its state when processing a `setup_coding_task` tool call from the Gemini WebSocket.
+- [x] #2 The Monaco editor immediately reflects the `language` and `starterCode` provided by the AI.
 <!-- AC:END -->

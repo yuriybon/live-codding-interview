@@ -1,9 +1,10 @@
 ---
 id: TASK-1.5.1
 title: 'Task 1.5.1: [Test] Zustand Store Tool Calling'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:27'
+updated_date: '2026-03-28 15:04'
 labels:
   - tdd-test
   - frontend
@@ -33,5 +34,5 @@ The magic of the AI interviewer is that it can manipulate the code editor using 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A failing unit test exists asserting that `useInterviewStore` updates the `code` and `language` state when a `functionCall` event for `setup_coding_task` is dispatched.
+- [x] #1 A failing unit test exists asserting that `useInterviewStore` updates the `code` and `language` state when a `functionCall` event for `setup_coding_task` is dispatched.
 <!-- AC:END -->

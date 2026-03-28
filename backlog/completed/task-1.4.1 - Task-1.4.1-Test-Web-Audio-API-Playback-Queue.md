@@ -1,9 +1,10 @@
 ---
 id: TASK-1.4.1
 title: 'Task 1.4.1: [Test] Web Audio API Playback Queue'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:24'
+updated_date: '2026-03-28 15:03'
 labels:
   - tdd-test
   - frontend
@@ -34,5 +35,5 @@ When the AI responds with raw PCM16 audio, the frontend must play it smoothly. W
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A test exists asserting that `AudioPlaybackService` queues incoming PCM16 buffers and successfully schedules them using `AudioContext`.
+- [x] #1 A test exists asserting that `AudioPlaybackService` queues incoming PCM16 buffers and successfully schedules them using `AudioContext`.
 <!-- AC:END -->

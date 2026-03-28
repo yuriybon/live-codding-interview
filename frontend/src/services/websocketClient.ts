@@ -54,7 +54,7 @@ export class WebSocketClient {
   }
 
   private handleMessage(message: any) {
-    const { addFeedback, acknowledgeFeedback, addTranscript, updateMetrics, endSession } = useInterviewStore.getState();
+    const { addFeedback, addTranscript, endSession } = useInterviewStore.getState();
 
     switch (message.type) {
       case 'session_joined':
@@ -100,9 +100,7 @@ export class WebSocketClient {
       case 'model_tool_call':
         // AI wants to execute a tool (e.g., update code editor)
         console.log('[WebSocket] AI tool call:', message.payload.tool, message.payload.args);
-
-        // TODO: Implement tool call dispatcher (Task 1.5.2)
-        // this.executeToolCall(message.payload);
+        this.executeToolCall(message.payload);
         break;
 
       case 'feedback':
@@ -135,6 +133,48 @@ export class WebSocketClient {
       default:
         console.warn('[WebSocket] Unknown message type:', message.type);
     }
+  }
+
+  private executeToolCall(payload: { tool: string; args: any; toolCallId: string }) {
+    const { handleToolCall } = useInterviewStore.getState();
+
+    try {
+      // 1. Update the store (UI state)
+      handleToolCall(payload);
+
+      // 2. Respond to Gemini to acknowledge the tool was executed
+      // This is critical to prevent the AI from waiting forever
+      this.sendToolResponse(payload.toolCallId, {
+        success: true,
+        message: `Successfully executed ${payload.tool}`,
+      });
+    } catch (error: any) {
+      console.error('[WebSocket] Tool execution failed:', error);
+
+      this.sendToolResponse(payload.toolCallId, {
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  private sendToolResponse(toolCallId: string, output: any) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    const { sessionId } = useInterviewStore.getState();
+    if (!sessionId) return;
+
+    this.ws.send(
+      JSON.stringify({
+        type: 'tool_response',
+        payload: {
+          toolCallId,
+          output,
+        },
+        sessionId,
+        timestamp: Date.now(),
+      })
+    );
   }
 
   private attemptReconnect() {

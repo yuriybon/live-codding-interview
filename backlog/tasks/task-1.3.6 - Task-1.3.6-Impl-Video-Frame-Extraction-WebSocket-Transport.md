@@ -1,9 +1,10 @@
 ---
 id: TASK-1.3.6
 title: 'Task 1.3.6: [Impl] Video Frame Extraction & WebSocket Transport'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 11:53'
+updated_date: '2026-03-28 15:02'
 labels: []
 dependencies:
   - TASK-1.3.5
@@ -19,8 +20,8 @@ Implement the logic to extract individual frames from the active screen sharing 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Extract frames from the active screen share MediaStream at a fixed interval (e.g., 1 frame per second).
-- [ ] #2 Convert the extracted frames into base64-encoded JPEG images.
-- [ ] #3 Send the base64-encoded frames over the established WebSocket connection to the backend bridge.
-- [ ] #4 The data format must match the `RealtimeInput` requirements for Gemini Live API (mimeType: 'image/jpeg').
+- [x] #1 Extract frames from the active screen share MediaStream at a fixed interval (e.g., 1 frame per second).
+- [x] #2 Convert the extracted frames into base64-encoded JPEG images.
+- [x] #3 Send the base64-encoded frames over the established WebSocket connection to the backend bridge.
+- [x] #4 The data format must match the `RealtimeInput` requirements for Gemini Live API (mimeType: 'image/jpeg').
 <!-- AC:END -->
