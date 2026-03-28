@@ -4,6 +4,7 @@ title: 'Task 12.3: [Frontend] Align outbound audio/video/text payloads to contra
 status: To Do
 assignee: []
 created_date: '2026-03-28 13:51'
+updated_date: '2026-03-28 15:05'
 labels:
   - frontend
   - websocket
@@ -11,6 +12,10 @@ dependencies:
   - TASK-12.2
   - TASK-1.3.2
   - TASK-1.3.6
+references:
+  - >-
+    backlog/docs/doc-4 -
+    Single-Page-Realtime-Architecture-and-WebSocket-Contract.md
 parent_task_id: TASK-12
 priority: high
 ---
@@ -25,3 +30,9 @@ Update client-side outbound websocket messages so microphone audio, screen frame
 <!-- AC:BEGIN -->
 - [ ] #1 Frontend outbound websocket payloads for audio/video/text validate against the canonical schema and are accepted by the backend without fallback parsing.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implementation must follow doc-4 canonical v1 websocket contract.
+<!-- SECTION:NOTES:END -->

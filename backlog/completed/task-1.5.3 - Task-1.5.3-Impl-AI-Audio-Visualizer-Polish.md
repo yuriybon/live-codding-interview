@@ -1,9 +1,10 @@
 ---
 id: TASK-1.5.3
 title: 'Task 1.5.3: [Impl] AI Audio Visualizer & Polish'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:28'
+updated_date: '2026-03-28 15:06'
 labels:
   - frontend
   - ui
@@ -31,6 +32,6 @@ The application needs a modern, polished "Agentic UI" like the `boxing-coach` pr
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 An animated React component (`AiVisualizer.tsx`) exists that reacts to an `audioLevel` prop or global state, visualizing when the AI is speaking.
-- [ ] #2 A mute/unmute button exists to stop candidate microphone transmission gracefully.
+- [x] #1 An animated React component (`AiVisualizer.tsx`) exists that reacts to an `audioLevel` prop or global state, visualizing when the AI is speaking.
+- [x] #2 A mute/unmute button exists to stop candidate microphone transmission gracefully.
 <!-- AC:END -->

@@ -9,29 +9,39 @@ import { ScreenShareService } from '../services/ScreenShareService';
 import { audioPlaybackQueue } from '../services/AudioPlaybackQueue';
 import { AudioRecorderService } from '../services/AudioRecorderService';
 import { debounce } from 'lodash';
+import { AiVisualizer } from '../components/AiVisualizer';
 
 function InterviewRoom() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const [code, setCode] = useState('// Write your solution here\n\nfunction solution() {\n  // TODO: Implement your solution\n}\n');
-  const [isListening, setIsListening] = useState(false);
-  const [isSharing, setIsSharing] = useState(false);
-  const [shareError, setShareError] = useState<string | null>(null);
-  const [isAISpeaking, setIsAISpeaking] = useState(false);
-  const frameCaptureInterval = useRef<NodeJS.Timeout | null>(null);
-
   const {
     sessionId: storeSessionId,
     isJoined,
     feedback,
     sessionMetrics,
+    code: storeCode,
+    language: storeLanguage,
     addFeedback,
     acknowledgeFeedback,
     updateMetrics,
     endSession,
   } = useInterviewStore();
 
+  const [code, setCode] = useState(storeCode);
+  const [isListening, setIsListening] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [isAISpeaking, setIsAISpeaking] = useState(false);
+
+  // Sync with store if code changes from external (tool call)
+  useEffect(() => {
+    setCode(storeCode);
+  }, [storeCode]);
+
+  const frameCaptureInterval = useRef<NodeJS.Timeout | null>(null);
+
   const codeRef = useRef<string>(code);
+  const hasCodeChangesRef = useRef<boolean>(false);
 
   // Store the WebSocket client instance
   const wsClientRef = useRef(wsClient);
@@ -177,10 +187,12 @@ function InterviewRoom() {
         // Wait a bit for video preview to be ready
         setTimeout(() => {
           frameCaptureInterval.current = setInterval(() => {
-            const frameData = service.captureFrame();
+            const frameData = screenShareService.current.captureFrame();
             if (frameData) {
               // Send to backend with code change indicator
-              wsClientRef.current.sendScreenFrame(frameData, false);
+              wsClientRef.current.sendScreenFrame(frameData, hasCodeChangesRef.current);
+              // Reset code change indicator after sending
+              hasCodeChangesRef.current = false;
             }
           }, 1000); // 1 FPS
         }, 500);
@@ -193,8 +205,8 @@ function InterviewRoom() {
 
   // Debounce the code sending so we don't flood the websocket
   const debouncedSendCode = useCallback(
-    debounce((value: string) => {
-      wsClientRef.current.sendCodeUpdate(value, 'typescript');
+    debounce((value: string, lang: string) => {
+      wsClientRef.current.sendCodeUpdate(value, lang);
     }, 1000),
     []
   );
@@ -202,7 +214,8 @@ function InterviewRoom() {
   const handleCodeChange = (value: string | undefined) => {
     if (value !== undefined) {
       setCode(value);
-      debouncedSendCode(value);
+      hasCodeChangesRef.current = true;
+      debouncedSendCode(value, storeLanguage);
     }
   };
 
@@ -302,7 +315,7 @@ function InterviewRoom() {
               </div>
               <Editor
                 height="600px"
-                language="typescript"
+                language={storeLanguage}
                 value={code}
                 onChange={handleCodeChange}
                 theme="vs-dark"
@@ -319,15 +332,8 @@ function InterviewRoom() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* AI Speaking Indicator */}
-            {isAISpeaking && (
-              <div className="bg-blue-900/30 border border-blue-600 rounded-xl p-3 shadow-xl animate-pulse">
-                <div className="flex items-center gap-2">
-                  <Volume2 className="w-5 h-5 text-blue-400" />
-                  <span className="text-blue-200 text-sm font-medium">AI is speaking...</span>
-                </div>
-              </div>
-            )}
+            {/* AI Visualizer */}
+            <AiVisualizer isSpeaking={isAISpeaking} />
 
             {/* Feedback Panel */}
             <div className="bg-gray-800 rounded-xl p-4 shadow-xl">

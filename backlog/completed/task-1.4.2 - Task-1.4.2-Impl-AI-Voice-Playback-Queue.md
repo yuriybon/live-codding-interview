@@ -1,9 +1,10 @@
 ---
 id: TASK-1.4.2
 title: 'Task 1.4.2: [Impl] AI Voice Playback Queue'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:25'
+updated_date: '2026-03-28 15:03'
 labels:
   - tdd-impl
   - frontend
@@ -34,6 +35,6 @@ Implement the PCM queue playback logic to smoothly stream the AI's voice and sup
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Incoming Gemini Live API audio chunks are played back natively in the browser without stuttering or popping.
-- [ ] #2 When a user interrupts, the `AudioPlaybackService` successfully clears the buffer queue and halts current playback.
+- [x] #1 Incoming Gemini Live API audio chunks are played back natively in the browser without stuttering or popping.
+- [x] #2 When a user interrupts, the `AudioPlaybackService` successfully clears the buffer queue and halts current playback.
 <!-- AC:END -->
