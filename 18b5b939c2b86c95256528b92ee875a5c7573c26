@@ -1,0 +1,25 @@
+src/server/__tests__/routes/auth.test.ts
+  32b0928c30437010 1-58
+src/server/routes/auth.ts
+  32b0928c30437010 1-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "18b5b939c2b86c95256528b92ee875a5c7573c26",
+  "prompts": {
+    "32b0928c30437010": {
+      "agent_id": {
+        "tool": "gemini",
+        "id": "bf28cef5-d768-4bc0-af0d-cf06daf24341",
+        "model": "gemini-3.1-pro-preview"
+      },
+      "human_author": "Yurii Bondar <Yurii_Bondar@genpt.com>",
+      "messages": [],
+      "total_additions": 72,
+      "total_deletions": 3,
+      "accepted_lines": 69,
+      "overriden_lines": 0
+    }
+  }
+}
