@@ -37,12 +37,12 @@ steps:
   # ==========================================
   # Step 2: Build with cache
   # ==========================================
-  # Build using the optimized Dockerfile with cache from previous build
+  # Build using the regular Dockerfile with cache from previous build
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build'
     args:
       - 'build'
-      - '--file=Dockerfile.optimized'
+      - '--file=Dockerfile'
       - '--build-arg=BUILDKIT_INLINE_CACHE=1'
       - '--cache-from=${_CACHE_IMAGE}:latest'
       - '--tag=${_IMAGE_NAME}:${SHORT_SHA}'
