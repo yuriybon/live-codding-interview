@@ -1,10 +1,10 @@
 ---
 id: TASK-2
 title: 'Task 0.1.1: [Test] Google OAuth2 callback failure handling'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:16'
-updated_date: '2026-03-28 07:20'
+updated_date: '2026-03-28 10:11'
 labels:
   - tdd-test
   - auth
@@ -32,5 +32,5 @@ Before implementing the Google OAuth2 flow, we must ensure the system handles mi
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A failing test exists asserting that `OAuth2Client` throws an error when exchanging a valid authorization code for tokens if the backend is not configured properly.
+- [x] #1 A failing test exists asserting that `OAuth2Client` throws an error when exchanging a valid authorization code for tokens if the backend is not configured properly.
 <!-- AC:END -->
