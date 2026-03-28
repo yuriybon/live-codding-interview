@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { NavBar } from '../components/NavBar';
 import { Card, Badge, Button, SectionHeader } from '../components/primitives';
 import { SessionConfigModal } from '../components/SessionConfigModal';
-import { Sparkles, Zap, Shield, Target, Play } from 'lucide-react';
+import { Sparkles, Zap, Shield, Target, Play, Brain } from 'lucide-react';
 
 function LandingPage() {
   const navigate = useNavigate();
