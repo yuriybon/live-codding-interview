@@ -1,15 +1,15 @@
 ---
 id: TASK-4
 title: 'Task 0.1.3: [Frontend] Google Sign-in UI and Initiation'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:16'
-updated_date: '2026-03-28 07:20'
+updated_date: '2026-03-28 11:46'
 labels:
   - frontend
   - auth
 dependencies:
-  - TASK-3
+  - TASK-9.2.5
 priority: high
 ---
 
@@ -31,6 +31,6 @@ Now that the backend can issue secure sessions, the frontend needs an entry poin
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Frontend components display a "Sign in with Google" button when no valid session exists.
-- [ ] #2 The login button triggers a redirect to the backend's `/auth/google` route to initiate the OAuth flow.
+- [x] #1 Frontend components display a "Sign in with Google" button when no valid session exists.
+- [x] #2 The login button triggers a redirect to the backend's `/auth/google` route to initiate the OAuth flow.
 <!-- AC:END -->

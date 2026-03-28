@@ -2,15 +2,20 @@ import { Router } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import { env } from '../config/env';
 import { authService } from '../services/auth';
+import { optionalAuth } from '../middleware/auth';
+import { getRedirectUri } from '../utils/redirect-uri';
 
 const router = Router();
 
 // Endpoint for initiating the Google OAuth flow
 router.get('/google', (req, res) => {
+    const redirectUri = getRedirectUri(req);
+    console.log(`[Auth] Initiating OAuth flow with redirect_uri: ${redirectUri}`);
+
     const oauth2Client = new OAuth2Client(
         env.GOOGLE_CLIENT_ID,
         env.GOOGLE_CLIENT_SECRET,
-        env.GOOGLE_REDIRECT_URI
+        redirectUri
     );
 
     const authorizeUrl = oauth2Client.generateAuthUrl({
@@ -29,6 +34,9 @@ router.get('/google', (req, res) => {
 router.get('/google/callback', async (req, res) => {
     const code = req.query.code as string;
     const error = req.query.error as string;
+    const redirectUri = getRedirectUri(req);
+
+    console.log(`[Auth] Handling callback with redirect_uri: ${redirectUri}`);
 
     if (error) {
         console.error('OAuth callback returned error:', error);
@@ -40,10 +48,13 @@ router.get('/google/callback', async (req, res) => {
     }
 
     try {
+        console.log(`[Auth] Attempting token exchange for code: ${code.toString().substring(0, 10)}...`);
+        console.log(`[Auth] Using Client ID: ${env.GOOGLE_CLIENT_ID?.substring(0, 10)}...`);
+
         const oauth2Client = new OAuth2Client(
             env.GOOGLE_CLIENT_ID,
             env.GOOGLE_CLIENT_SECRET,
-            env.GOOGLE_REDIRECT_URI
+            redirectUri
         );
 
         // Exchange code for tokens
@@ -62,19 +73,19 @@ router.get('/google/callback', async (req, res) => {
         });
 
         const payload = ticket.getPayload();
-        
-        // Extract profile and create our own session token
-        const userProfile = authService.extractUserProfile(payload);
-        const sessionToken = authService.generateSessionToken(userProfile);
 
-        // Set the token as an HTTP-only cookie
-        res.cookie('session_token', sessionToken, {
-            httpOnly: true,
-            secure: env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 24 * 60 * 60 * 1000, // 24 hours
-            path: '/',
-        });
+        // Extract profile and store in session
+        const userProfile = authService.extractUserProfile(payload);
+
+        // Store user data in encrypted session cookie
+        if (req.session) {
+            req.session.user = {
+                id: userProfile.id,
+                email: userProfile.email,
+                name: userProfile.name,
+                picture: userProfile.picture,
+            };
+        }
 
         // Redirect back to frontend on success
         res.redirect(env.FRONTEND_URL);
@@ -84,6 +95,44 @@ router.get('/google/callback', async (req, res) => {
         const errorMessage = err instanceof Error ? err.message : 'unknown_error';
         res.redirect(`${env.FRONTEND_URL}/?error=${encodeURIComponent(errorMessage)}`);
     }
+});
+
+// Get current authenticated user
+router.get('/me', optionalAuth, (req, res) => {
+    const user = req.user || null;
+    console.log(`[Auth] /auth/me called. User in session: ${user ? user.email : 'NONE'}`);
+    res.json({ user });
+});
+
+// Logout endpoint - clears session
+router.post('/logout', (req, res) => {
+    if (req.session) {
+        req.session.user = undefined;
+    }
+    res.json({ success: true });
+});
+
+// Get Google OAuth URL for frontend-initiated auth flow
+router.get('/google/url', (req, res) => {
+    const redirectUri = getRedirectUri(req);
+    console.log(`[Auth] Generating Auth URL with redirect_uri: ${redirectUri}`);
+
+    const oauth2Client = new OAuth2Client(
+        env.GOOGLE_CLIENT_ID,
+        env.GOOGLE_CLIENT_SECRET,
+        redirectUri
+    );
+
+    const url = oauth2Client.generateAuthUrl({
+        access_type: 'offline',
+        scope: [
+            'https://www.googleapis.com/auth/userinfo.profile',
+            'https://www.googleapis.com/auth/userinfo.email',
+        ],
+        prompt: 'consent',
+    });
+
+    res.json({ url });
 });
 
 export default router;
