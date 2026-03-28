@@ -14,6 +14,7 @@ export const env = {
   
   // Vertex AI / Gemini Configuration
   GEMINI_MODEL_NAME: process.env.GEMINI_MODEL_NAME || 'gemini-1.5-flash',
+  GEMINI_REALTIME_MODEL: process.env.GEMINI_REALTIME_MODEL || '',
   GEMINI_SYSTEM_PROMPT: process.env.GEMINI_SYSTEM_PROMPT || '',
   
   // WebSocket Configuration
@@ -44,7 +45,7 @@ export const env = {
     const required = [
       'GCP_PROJECT_ID',
       'GCP_LOCATION',
-      'GEMINI_MODEL_NAME',
+      'GEMINI_REALTIME_MODEL',
     ];
     
     const missing = required.filter(key => !env[key as keyof typeof env]);

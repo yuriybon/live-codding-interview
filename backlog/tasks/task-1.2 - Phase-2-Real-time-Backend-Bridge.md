@@ -1,9 +1,10 @@
 ---
 id: TASK-1.2
 title: 'Phase 2: Real-time Backend Bridge'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:04'
+updated_date: '2026-03-28 12:26'
 labels:
   - backend
   - websocket

@@ -1,10 +1,10 @@
 ---
 id: TASK-1.2.1
 title: 'Task 1.2.1: [Test] GeminiLiveClient connection initialization'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:08'
-updated_date: '2026-03-28 07:22'
+updated_date: '2026-03-28 12:14'
 labels:
   - tdd-test
   - backend
@@ -33,5 +33,5 @@ The backend must connect directly to the Gemini Multimodal Live API via WebSocke
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A failing unit test exists asserting that a new `GeminiLiveClient` class initiates a secure WebSocket connection to the Vertex AI endpoints using valid Google Auth credentials.
+- [x] #1 A failing unit test exists asserting that a new `GeminiLiveClient` class initiates a secure WebSocket connection to the Vertex AI endpoints using valid Google Auth credentials.
 <!-- AC:END -->

@@ -1,0 +1,475 @@
+/**
+ * WebSocketService Test Suite
+ * TDD Phase: Red (Test First)
+ *
+ * This test enforces that WebSocketService does NOT use polling loops
+ * for session analysis. The current implementation violates this by
+ * starting a 5-second setInterval when a candidate joins a session.
+ *
+ * Expected behavior: This test will FAIL until the polling loop is removed.
+ */
+
+import WebSocket, { WebSocketServer } from 'ws';
+import { WebSocketService } from '../../services/websocket';
+import { vertexAI } from '../../services/vertex-ai';
+
+// Mock the vertex-ai module to prevent actual API calls
+jest.mock('../../services/vertex-ai', () => ({
+  vertexAI: {
+    analyzeTranscript: jest.fn(),
+    generateFeedback: jest.fn().mockResolvedValue('Mock feedback'),
+  },
+}));
+
+// Mock the env config
+jest.mock('../../config/env', () => ({
+  env: {
+    WS_PORT: '8080',
+    NODE_ENV: 'test',
+  },
+}));
+
+// Mock WebSocketServer to prevent actual server creation
+jest.mock('ws', () => {
+  const EventEmitter = require('events');
+
+  class MockWebSocketServer extends EventEmitter {
+    close() {}
+  }
+
+  class MockWebSocket extends EventEmitter {
+    readyState = 1; // OPEN
+    send(data: any) {}
+  }
+
+  return {
+    WebSocketServer: MockWebSocketServer,
+    __esModule: true,
+    default: MockWebSocket,
+  };
+});
+
+describe('WebSocketService - Polling Loop Removal', () => {
+  let wsService: WebSocketService;
+  let mockClient: WebSocket;
+
+  beforeEach(() => {
+    // Clear all mocks
+    jest.clearAllMocks();
+
+    // Use fake timers to control time-based operations
+    jest.useFakeTimers();
+
+    // Spy on setInterval to detect polling loops
+    jest.spyOn(global, 'setInterval');
+  });
+
+  afterEach(() => {
+    // Clean up
+    if (wsService) {
+      wsService.close();
+    }
+
+    // Restore real timers
+    jest.useRealTimers();
+
+    // Restore spies
+    jest.restoreAllMocks();
+  });
+
+  /**
+   * TDD Red Phase Test
+   *
+   * This test asserts that when a candidate joins a session,
+   * the WebSocketService does NOT initiate a polling loop via setInterval.
+   *
+   * Current implementation FAILS this test because:
+   * - handleJoinSession() calls startSessionAnalysis()
+   * - startSessionAnalysis() creates a setInterval with 5000ms interval
+   *
+   * This test will pass once TASK-1.1.2 removes the polling logic.
+   */
+  it('should NOT start a polling interval when a candidate joins a session', async () => {
+    // Arrange: Create a WebSocket service instance
+    wsService = new WebSocketService(8080);
+
+    // Create a mock WebSocket client (using the mocked class)
+    const EventEmitter = require('events');
+    mockClient = new EventEmitter();
+    (mockClient as any).readyState = 1; // OPEN state
+    (mockClient as any).send = jest.fn();
+
+    // Simulate the client connecting and joining a session
+    const joinSessionMessage = {
+      type: 'join_session',
+      payload: {
+        sessionId: 'test-session-123',
+        isCandidate: true,
+      },
+      sessionId: 'test-session-123',
+      timestamp: Date.now(),
+    };
+
+    // Trigger the connection handler manually
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    // Set up client data so message handler doesn't reject
+    const clientData = {
+      sessionId: 'test-session-123',
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    // Trigger the message handler
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(mockClient, JSON.stringify(joinSessionMessage));
+
+    // Act: Fast-forward time by 10 seconds (should be enough to trigger polling)
+    jest.advanceTimersByTime(10000);
+
+    // Assert: Verify that setInterval was called (this will FAIL in Red phase)
+    // Current implementation WILL FAIL here because it uses setInterval
+    expect(setInterval).not.toHaveBeenCalled();
+
+    // Alternative assertion: Verify that analyzeTranscript was NOT called
+    // This ensures no polling-based analysis occurred
+    expect(vertexAI.analyzeTranscript).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Additional test to verify no background analysis happens over time
+   *
+   * This test ensures that even after extended periods, the service
+   * doesn't perform any periodic analysis operations.
+   */
+  it('should NOT perform periodic analysis after candidate joins', async () => {
+    // Arrange
+    wsService = new WebSocketService(8080);
+
+    const EventEmitter = require('events');
+    mockClient = new EventEmitter();
+    (mockClient as any).readyState = 1;
+    (mockClient as any).send = jest.fn();
+
+    const joinSessionMessage = {
+      type: 'join_session',
+      payload: {
+        sessionId: 'test-session-456',
+        isCandidate: true,
+      },
+      sessionId: 'test-session-456',
+      timestamp: Date.now(),
+    };
+
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    // Set up client data
+    const clientData = {
+      sessionId: 'test-session-456',
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(mockClient, JSON.stringify(joinSessionMessage));
+
+    // Act: Fast-forward through multiple 5-second intervals (30 seconds total)
+    jest.advanceTimersByTime(30000);
+
+    // Assert: No analysis should have occurred during this time
+    expect(vertexAI.analyzeTranscript).not.toHaveBeenCalled();
+
+    // Verify the service is still responsive (not in a polling loop)
+    const session = wsService.getSession('test-session-456');
+    expect(session).toBeDefined();
+    expect(session?.status).toBe('active');
+  });
+
+  /**
+   * Test to ensure clean architecture principles
+   *
+   * The WebSocket service should only handle transport-layer concerns,
+   * not orchestrate business logic timing (like when to analyze transcripts).
+   */
+  it('should follow Single Responsibility Principle - transport only, no business logic timing', () => {
+    // Arrange
+    wsService = new WebSocketService(8080);
+
+    // Assert: Check that the service doesn't have analysis interval properties
+    const serviceInstance = wsService as any;
+
+    // After construction, there should be no analysis interval property
+    // Since we removed the property entirely, it should be undefined
+    expect(serviceInstance.analysisInterval).toBeUndefined();
+
+    // The service should not be responsible for timing analysis operations
+    // Analysis should be triggered by external events, not internal timers
+  });
+});
+
+/**
+ * WebSocketService - Upstream Message Routing Test Suite
+ * TDD Phase: Red (Test First)
+ *
+ * These tests verify that messages from the React frontend are correctly
+ * routed through the WebSocketService to the GeminiLiveClient without
+ * modification or data loss.
+ *
+ * Expected behavior: These tests will FAIL until TASK-1.2.4 implements
+ * the message routing logic.
+ */
+
+// Mock GeminiLiveClient
+jest.mock('../../services/gemini-live', () => {
+  const EventEmitter = require('events');
+
+  class MockGeminiLiveClient extends EventEmitter {
+    connected: boolean = true; // Start connected for tests
+
+    async connect() {
+      this.connected = true;
+      this.emit('connected');
+    }
+
+    disconnect() {
+      this.connected = false;
+      this.emit('disconnected');
+    }
+
+    isConnected() {
+      return this.connected;
+    }
+
+    send = jest.fn();
+    sendAudio = jest.fn();
+    sendVideoFrame = jest.fn();
+    sendText = jest.fn();
+  }
+
+  return {
+    GeminiLiveClient: MockGeminiLiveClient,
+  };
+});
+
+describe('WebSocketService - Upstream Message Routing', () => {
+  let wsService: WebSocketService;
+  let mockClient: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    // Create mock client first
+    const EventEmitter = require('events');
+    mockClient = new EventEmitter();
+    mockClient.readyState = 1; // OPEN
+    mockClient.send = jest.fn();
+
+    // Create service and immediately inject mock gemini client
+    // This prevents the async setupGeminiClient from creating its own instance
+    wsService = new WebSocketService(8080);
+    const { GeminiLiveClient } = require('../../services/gemini-live');
+    const geminiClient = new GeminiLiveClient();
+    (wsService as any).geminiClient = geminiClient;
+  });
+
+  afterEach(() => {
+    if (wsService) {
+      wsService.close();
+    }
+  });
+
+  /**
+   * TDD Red Phase Test
+   *
+   * This test verifies that when a client sends an audio message,
+   * it gets routed to the GeminiLiveClient correctly.
+   *
+   * Current implementation WILL FAIL because:
+   * - WebSocketService doesn't have GeminiLiveClient integration yet
+   * - No routing logic implemented
+   *
+   * This test will pass once TASK-1.2.4 implements the routing.
+   */
+  it('should route audio data from client to GeminiLiveClient', async () => {
+    // Arrange: Get the mock gemini client from the service
+    const geminiClient = (wsService as any).geminiClient;
+
+    // Verify geminiClient is set up
+    expect(geminiClient).toBeDefined();
+    expect(geminiClient.isConnected()).toBe(true);
+
+    // Simulate client connection
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    // Set up client data
+    const clientData = {
+      sessionId: 'test-session-123',
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    // Create session for the client
+    const session = (wsService as any).createSession('test-session-123');
+    (wsService as any).sessions.set('test-session-123', session);
+
+    // Create audio segment message
+    const audioMessage = {
+      type: 'audio_segment',
+      payload: {
+        audioData: 'base64-encoded-pcm16-audio-data',
+        transcript: 'Hello, I am thinking about this problem...',
+      },
+      sessionId: 'test-session-123',
+      timestamp: Date.now(),
+    };
+
+    // Act: Send the audio message
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(mockClient, JSON.stringify(audioMessage));
+
+    // Assert: Verify the audio was sent to Gemini
+    expect(geminiClient.sendAudio).toHaveBeenCalledWith('base64-encoded-pcm16-audio-data');
+  });
+
+  /**
+   * Test that verifies screen frame routing
+   */
+  it('should route screen frames from client to GeminiLiveClient', async () => {
+    // Arrange: Get the mock gemini client from the service
+    const geminiClient = (wsService as any).geminiClient;
+
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    const clientData = {
+      sessionId: 'test-session-456',
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    // Create session for the client
+    const session = (wsService as any).createSession('test-session-456');
+    (wsService as any).sessions.set('test-session-456', session);
+
+    // Create screen frame message
+    const screenFrameMessage = {
+      type: 'screen_frame',
+      payload: {
+        imageData: 'base64-encoded-jpeg-image',
+        hasCodeChanges: true,
+      },
+      sessionId: 'test-session-456',
+      timestamp: Date.now(),
+    };
+
+    // Act: Send the screen frame message
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(mockClient, JSON.stringify(screenFrameMessage));
+
+    // Assert: Verify the frame was sent to Gemini
+    expect(geminiClient.sendVideoFrame).toHaveBeenCalledWith('base64-encoded-jpeg-image');
+  });
+
+  /**
+   * Test that verifies text message routing
+   */
+  it('should route text messages from client to GeminiLiveClient', async () => {
+    // Arrange: Get the mock gemini client from the service
+    const geminiClient = (wsService as any).geminiClient;
+
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    const clientData = {
+      sessionId: 'test-session-789',
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    // Create session for the client
+    const session = (wsService as any).createSession('test-session-789');
+    (wsService as any).sessions.set('test-session-789', session);
+
+    // Create request feedback message (which should send text to Gemini)
+    const feedbackRequestMessage = {
+      type: 'request_feedback',
+      payload: {
+        reason: 'Need help understanding time complexity',
+      },
+      sessionId: 'test-session-789',
+      timestamp: Date.now(),
+    };
+
+    // Act: Send the feedback request
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(mockClient, JSON.stringify(feedbackRequestMessage));
+
+    // Assert: Verify a message was sent to Gemini
+    // The exact format depends on implementation, but should include the reason
+    expect(geminiClient.sendText).toHaveBeenCalled();
+  });
+
+  /**
+   * Test that verifies data integrity during routing
+   */
+  it('should not modify or mangle data during routing', async () => {
+    // Arrange: Get the mock gemini client from the service
+    const geminiClient = (wsService as any).geminiClient;
+
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    const clientData = {
+      sessionId: 'test-session-999',
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    // Create session for the client
+    const session = (wsService as any).createSession('test-session-999');
+    (wsService as any).sessions.set('test-session-999', session);
+
+    // Create audio message with specific binary data
+    const originalAudioData = 'AQIDBAU='; // Base64 for [1,2,3,4,5]
+    const audioMessage = {
+      type: 'audio_segment',
+      payload: {
+        audioData: originalAudioData,
+        transcript: '',
+      },
+      sessionId: 'test-session-999',
+      timestamp: Date.now(),
+    };
+
+    // Act: Send the message
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(mockClient, JSON.stringify(audioMessage));
+
+    // Assert: Verify the exact data was passed through
+    expect(geminiClient.sendAudio).toHaveBeenCalledWith(originalAudioData);
+  });
+
+  /**
+   * Adapter Pattern Architecture Test
+   *
+   * Verifies that WebSocketService acts as a clean adapter between
+   * client connections and the Gemini API, following the Adapter Pattern.
+   */
+  it('should act as an adapter between client WebSocket and GeminiLiveClient', async () => {
+    // Assert: The service should maintain references to both transports
+    expect((wsService as any).geminiClient).toBeDefined();
+    expect((wsService as any).clients).toBeDefined();
+
+    // The service bridges messages between these two transports
+    // without adding business logic (that was removed in Phase 1)
+  });
+});
