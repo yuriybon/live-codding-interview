@@ -1,9 +1,10 @@
 ---
 id: TASK-1.3.5
 title: 'Task 1.3.5: [Impl] Native Screen Share Capture UI'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-03-28 11:53'
+updated_date: '2026-03-28 15:00'
 labels: []
 dependencies: []
 parent_task_id: TASK-1.3
