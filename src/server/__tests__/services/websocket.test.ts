@@ -248,6 +248,7 @@ jest.mock('../../services/gemini-live', () => {
     sendAudio = jest.fn();
     sendVideoFrame = jest.fn();
     sendText = jest.fn();
+    sendToolResponse = jest.fn();
   }
 
   return {
@@ -471,6 +472,200 @@ describe('WebSocketService - Upstream Message Routing', () => {
 
     // The service bridges messages between these two transports
     // without adding business logic (that was removed in Phase 1)
+  });
+});
+
+describe('WebSocketService - Session Lifecycle and Relay Parity', () => {
+  let wsService: WebSocketService;
+  let mockClient: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    const EventEmitter = require('events');
+    mockClient = new EventEmitter();
+    mockClient.readyState = 1;
+    mockClient.send = jest.fn();
+
+    wsService = new WebSocketService(8080);
+    const { GeminiLiveClient } = require('../../services/gemini-live');
+    (wsService as any).geminiClient = new GeminiLiveClient();
+  });
+
+  afterEach(() => {
+    if (wsService) {
+      wsService.close();
+    }
+  });
+
+  it('should handle explicit start_session and emit session_started', async () => {
+    const broadcastSpy = jest.spyOn(wsService as any, 'broadcastToSession');
+
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    const clientData = {
+      clientId: 'client-lifecycle-1',
+      sessionId: 'session-lifecycle-1',
+      hasJoinedSession: true,
+      hasStartedSession: false,
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    const session = (wsService as any).createSession('session-lifecycle-1');
+    (wsService as any).sessions.set('session-lifecycle-1', session);
+
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(
+      mockClient,
+      JSON.stringify({
+        type: 'start_session',
+        payload: {
+          config: {
+            systemInstruction: 'Custom test prompt',
+            voiceName: 'Zephyr',
+          },
+        },
+        sessionId: 'session-lifecycle-1',
+        timestamp: Date.now(),
+      })
+    );
+
+    expect(clientData.hasStartedSession).toBe(true);
+    expect(broadcastSpy).toHaveBeenCalledWith(
+      'session-lifecycle-1',
+      expect.objectContaining({
+        type: 'session_started',
+        payload: expect.objectContaining({
+          sessionId: 'session-lifecycle-1',
+          voice: 'Zephyr',
+        }),
+      })
+    );
+
+    broadcastSpy.mockRestore();
+  });
+
+  it('should relay realtime_input audio/video to Gemini using boxing-coach style envelope', async () => {
+    const geminiClient = (wsService as any).geminiClient;
+
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    const clientData = {
+      clientId: 'client-lifecycle-2',
+      sessionId: 'session-lifecycle-2',
+      hasJoinedSession: true,
+      hasStartedSession: true,
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    const session = (wsService as any).createSession('session-lifecycle-2');
+    (wsService as any).sessions.set('session-lifecycle-2', session);
+
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+
+    await messageHandler(
+      mockClient,
+      JSON.stringify({
+        type: 'realtime_input',
+        media: { data: 'audio-chunk-base64', mimeType: 'audio/pcm;rate=16000' },
+        sessionId: 'session-lifecycle-2',
+        timestamp: Date.now(),
+      })
+    );
+
+    await messageHandler(
+      mockClient,
+      JSON.stringify({
+        type: 'realtime_input',
+        media: { data: 'jpeg-frame-base64', mimeType: 'image/jpeg' },
+        sessionId: 'session-lifecycle-2',
+        timestamp: Date.now(),
+      })
+    );
+
+    expect(geminiClient.sendAudio).toHaveBeenCalledWith('audio-chunk-base64');
+    expect(geminiClient.sendVideoFrame).toHaveBeenCalledWith('jpeg-frame-base64');
+  });
+
+  it('should normalize tool_response payloads and relay function responses to Gemini', async () => {
+    const geminiClient = (wsService as any).geminiClient;
+
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    const clientData = {
+      clientId: 'client-lifecycle-3',
+      sessionId: 'session-lifecycle-3',
+      hasJoinedSession: true,
+      hasStartedSession: true,
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    const session = (wsService as any).createSession('session-lifecycle-3');
+    (wsService as any).sessions.set('session-lifecycle-3', session);
+
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(
+      mockClient,
+      JSON.stringify({
+        type: 'tool_response',
+        payload: {
+          toolCallId: 'tool-call-abc',
+          output: { success: true },
+        },
+        sessionId: 'session-lifecycle-3',
+        timestamp: Date.now(),
+      })
+    );
+
+    expect(geminiClient.sendToolResponse).toHaveBeenCalledWith([
+      {
+        id: 'tool-call-abc',
+        response: { success: true },
+      },
+    ]);
+  });
+
+  it('should attach correlation identifiers to server error responses for invalid payloads', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    const clientData = {
+      clientId: 'client-lifecycle-4',
+      sessionId: 'session-lifecycle-4',
+      hasJoinedSession: false,
+      hasStartedSession: false,
+      isCandidate: true,
+      lastActivity: Date.now(),
+    };
+    (wsService as any).clients.set(mockClient, clientData);
+
+    const messageHandler = (wsService as any).handleMessage.bind(wsService);
+    await messageHandler(
+      mockClient,
+      JSON.stringify({
+        type: 'code_update',
+        payload: { code: 'const x = 1;', language: 'typescript' },
+        sessionId: 'session-lifecycle-4',
+        timestamp: Date.now(),
+        correlationId: 'corr-invalid-input-1',
+      })
+    );
+
+    expect((clientData as any).lastCorrelationId).toBe('corr-invalid-input-1');
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('corr-invalid-input-1'));
+
+    warnSpy.mockRestore();
   });
 });
 

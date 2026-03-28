@@ -1,9 +1,10 @@
 ---
 id: TASK-11.5
 title: 'Task 11.5: [Frontend] Session configuration modal visual alignment'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 13:27'
+updated_date: '2026-03-28 16:01'
 labels:
   - frontend
   - ui
@@ -23,5 +24,5 @@ Apply prototype-level visual quality to the session configuration experience (la
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Session configuration UI follows the same visual system as refreshed landing/interview screens and still submits valid payloads to the existing session creation flow.
+- [x] #1 Session configuration UI follows the same visual system as refreshed landing/interview screens and still submits valid payloads to the existing session creation flow.
 <!-- AC:END -->

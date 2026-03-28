@@ -24,6 +24,8 @@ export interface BaseMessage {
   sessionId: string;
   /** Unix timestamp (milliseconds) */
   timestamp: number;
+  /** Correlation identifier for tracing a message across client/server/provider logs */
+  correlationId?: string;
 }
 
 // ============================================================================

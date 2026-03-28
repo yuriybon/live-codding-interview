@@ -1,9 +1,10 @@
 ---
 id: TASK-11.2
 title: 'Task 11.2: [Frontend] Landing page visual refresh from prototype'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 13:26'
+updated_date: '2026-03-28 16:05'
 labels:
   - frontend
   - ui
@@ -22,5 +23,5 @@ Refresh the authenticated landing experience to match the prototype visual style
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Landing page reflects the approved prototype-inspired visual hierarchy while preserving existing Google auth and start-session flows.
+- [x] #1 Landing page reflects the approved prototype-inspired visual hierarchy while preserving existing Google auth and start-session flows.
 <!-- AC:END -->

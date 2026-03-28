@@ -5,7 +5,9 @@ import { AudioPlaybackQueue } from '../../services/AudioPlaybackQueue';
 class MockAudioContext {
   state = 'running';
   sampleRate = 24000;
+  currentTime = 0;
   destination = {};
+  createdSources: any[] = [];
 
   createBuffer(channels: number, length: number, sampleRate: number) {
     return {
@@ -18,14 +20,20 @@ class MockAudioContext {
   }
 
   createBufferSource() {
-    return {
+    const source = {
       buffer: null,
       onended: null,
       connect: vi.fn(),
       disconnect: vi.fn(),
-      start: vi.fn(),
+      start: vi.fn((when?: number) => {
+        if (typeof when === 'number') {
+          this.currentTime = Math.max(this.currentTime, when);
+        }
+      }),
       stop: vi.fn(),
     };
+    this.createdSources.push(source);
+    return source;
   }
 
   resume() {
@@ -208,6 +216,64 @@ describe('AudioPlaybackQueue', () => {
   });
 
   describe('Queue Management', () => {
+    it('should schedule chunk start times sequentially', async () => {
+      const flush = async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      };
+
+      const makeChunk = (sampleCount: number) => {
+        const samples = new Int16Array(sampleCount);
+        for (let i = 0; i < samples.length; i++) {
+          samples[i] = Math.sin(i * 0.1) * 32767;
+        }
+
+        const bytes = new Uint8Array(samples.buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+      };
+
+      const chunk = makeChunk(2400); // 0.1s at 24kHz
+      queue.enqueue(chunk);
+      queue.enqueue(chunk);
+      queue.enqueue(chunk);
+      await flush();
+
+      const ctx = (queue as any).audioContext as MockAudioContext;
+
+      expect(ctx.createdSources.length).toBe(1);
+      const first = ctx.createdSources[0];
+      const firstStart = (first.start as any).mock.calls[0][0] as number;
+      expect(firstStart).toBeCloseTo(0, 5);
+
+      const firstDuration = first.buffer.duration as number;
+      ctx.currentTime = firstStart + firstDuration;
+      if (typeof first.onended === 'function') {
+        first.onended();
+      }
+      await flush();
+
+      expect(ctx.createdSources.length).toBe(2);
+      const second = ctx.createdSources[1];
+      const secondStart = (second.start as any).mock.calls[0][0] as number;
+      expect(secondStart).toBeCloseTo(firstStart + firstDuration, 5);
+
+      const secondDuration = second.buffer.duration as number;
+      ctx.currentTime = secondStart + secondDuration;
+      if (typeof second.onended === 'function') {
+        second.onended();
+      }
+      await flush();
+
+      expect(ctx.createdSources.length).toBe(3);
+      const third = ctx.createdSources[2];
+      const thirdStart = (third.start as any).mock.calls[0][0] as number;
+      expect(thirdStart).toBeCloseTo(secondStart + secondDuration, 5);
+    });
+
     it('should maintain FIFO order', () => {
       const chunk1 = btoa('chunk1');
       const chunk2 = btoa('chunk2');

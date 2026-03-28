@@ -17,6 +17,12 @@ import WebSocket from 'ws';
 import { GoogleAuth } from 'google-auth-library';
 import { env } from '../config/env';
 
+interface GeminiSessionSetupConfig {
+  systemInstructionText?: string;
+  voiceName?: string;
+  tools?: unknown[];
+}
+
 /**
  * GeminiLiveClient events:
  * - 'connected': Emitted when WebSocket connection is established
@@ -49,7 +55,7 @@ export class GeminiLiveClient extends EventEmitter {
    *
    * @throws Error if authentication fails or connection cannot be established
    */
-  async connect(systemInstructionText?: string): Promise<void> {
+  async connect(config?: GeminiSessionSetupConfig | string): Promise<void> {
     try {
       // Step 1: Fetch access token for authentication
       const accessToken = await this.auth.getAccessToken();
@@ -71,7 +77,7 @@ export class GeminiLiveClient extends EventEmitter {
       await this.waitForConnection();
 
       // Step 4: Send initial setup message
-      await this.sendSetupMessage(systemInstructionText);
+      await this.sendSetupMessage(config);
 
       this.connected = true;
       this.emit('connected');
@@ -178,8 +184,11 @@ export class GeminiLiveClient extends EventEmitter {
    * - Generation configuration (temperature, response modalities)
    * - Tool declarations (coding task setup)
    */
-  private async sendSetupMessage(systemInstructionText?: string): Promise<void> {
-    const text = systemInstructionText || `You are Alex, a senior technical interviewer and software architect conducting a live coding interview.
+  private async sendSetupMessage(config?: GeminiSessionSetupConfig | string): Promise<void> {
+    const resolvedConfig: GeminiSessionSetupConfig =
+      typeof config === 'string' ? { systemInstructionText: config } : config || {};
+
+    const text = resolvedConfig.systemInstructionText || `You are Alex, a senior technical interviewer and software architect conducting a live coding interview.
 Your role is to:
 - Observe the candidate's code in real-time through their screen share. Comment on their implementation choices, variable naming, and algorithmic efficiency as they type.
 - Listen to their verbal explanation and thought process. If they are quiet for too long while typing, encourage them to think out loud.
@@ -190,27 +199,10 @@ Your role is to:
 
 Be concise in your verbal responses to avoid interrupting the candidate's flow. Your goal is to evaluate both their technical ability and their communication skills.`;
 
-    const setupMessage = {
-      setup: {
-        model: `projects/${env.GCP_PROJECT_ID}/locations/${env.GCP_LOCATION}/publishers/google/models/${env.GEMINI_REALTIME_MODEL}`,
-        generation_config: {
-          response_modalities: ['AUDIO', 'TEXT'],
-          speech_config: {
-            voice_config: {
-              prebuilt_voice_config: {
-                voice_name: 'Kore',
-              },
-            },
-          },
-        },
-        system_instruction: {
-          parts: [
-            {
-              text,
-            },
-          ],
-        },
-        tools: [
+    const voiceName = resolvedConfig.voiceName || 'Kore';
+    const tools = Array.isArray(resolvedConfig.tools) && resolvedConfig.tools.length > 0
+      ? resolvedConfig.tools
+      : [
           {
             function_declarations: [
               {
@@ -238,7 +230,38 @@ Be concise in your verbal responses to avoid interrupting the candidate's flow. 
               },
             ],
           },
-        ],
+        ];
+
+    const setupMessage = {
+      setup: {
+        model: `projects/${env.GCP_PROJECT_ID}/locations/${env.GCP_LOCATION}/publishers/google/models/${env.GEMINI_REALTIME_MODEL}`,
+        generation_config: {
+          response_modalities: ['AUDIO', 'TEXT'],
+          speech_config: {
+            voice_config: {
+              prebuilt_voice_config: {
+                voice_name: voiceName,
+              },
+            },
+          },
+        },
+        realtime_input_config: {
+          automatic_activity_detection: {
+            start_of_speech_sensitivity: 'MEDIUM',
+            end_of_speech_sensitivity: 'MEDIUM',
+            prefix_padding_ms: 300,
+            silence_duration_ms: 500,
+          },
+          activity_handling: 'START_OF_ACTIVITY_INTERRUPTS',
+        },
+        system_instruction: {
+          parts: [
+            {
+              text,
+            },
+          ],
+        },
+        tools,
       },
     };
 
@@ -335,6 +358,14 @@ Be concise in your verbal responses to avoid interrupting the candidate's flow. 
           },
         ],
         turn_complete: true,
+      },
+    });
+  }
+
+  sendToolResponse(functionResponses: unknown[]): void {
+    this.send({
+      tool_response: {
+        function_responses: functionResponses,
       },
     });
   }

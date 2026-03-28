@@ -6,20 +6,69 @@ const WS_URL = 'ws://localhost:3002';
 export class WebSocketClient {
   private ws: WebSocket | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
+  private connectionCorrelationId: string | null = null;
+  private correlationSequence: number = 0;
+
+  private createCorrelationId(): string {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  private nextCorrelationId(): string {
+    this.correlationSequence += 1;
+    const base = this.connectionCorrelationId ?? this.createCorrelationId();
+    return `${base}-${this.correlationSequence}`;
+  }
+
+  private logDiagnostic(event: string, details: Record<string, unknown> = {}, level: 'info' | 'warn' | 'error' = 'info') {
+    const entry = {
+      ts: new Date().toISOString(),
+      event,
+      connectionCorrelationId: this.connectionCorrelationId,
+      ...details,
+    };
+    const serialized = `[WS_CLIENT_DIAG] ${JSON.stringify(entry)}`;
+    if (level === 'error') {
+      console.error(serialized);
+      return;
+    }
+    if (level === 'warn') {
+      console.warn(serialized);
+      return;
+    }
+    console.log(serialized);
+  }
 
   private send(message: any) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(message));
+      const correlationId =
+        typeof message?.correlationId === 'string' && message.correlationId.length > 0
+          ? message.correlationId
+          : this.nextCorrelationId();
+      const serialized = {
+        ...message,
+        correlationId,
+      };
+      this.ws.send(JSON.stringify(serialized));
+      this.logDiagnostic('outbound_message', {
+        messageType: serialized.type,
+        sessionId: serialized.sessionId,
+        correlationId,
+      });
     }
   }
 
   connect(sessionId: string, isCandidate: boolean = true): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
+        this.connectionCorrelationId = this.createCorrelationId();
+        this.correlationSequence = 0;
         this.ws = new WebSocket(WS_URL);
 
         this.ws.onopen = () => {
-          console.log('WebSocket connected');
+          this.logDiagnostic('connection_open', {
+            sessionId,
+            wsUrl: WS_URL,
+          });
           this.send({
             type: 'join_session',
             payload: { sessionId, isCandidate },
@@ -32,22 +81,53 @@ export class WebSocketClient {
         this.ws.onmessage = (event) => {
           try {
             const message = JSON.parse(event.data);
+            this.logDiagnostic('inbound_message', {
+              messageType: message?.type,
+              sessionId: message?.sessionId,
+              correlationId: message?.correlationId,
+            });
             this.handleMessage(message);
           } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
+            this.logDiagnostic(
+              'inbound_parse_failed',
+              {
+                failureSource: 'provider_response',
+                reason: error instanceof Error ? error.message : 'Unknown parse error',
+              },
+              'error'
+            );
           }
         };
 
         this.ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
+          this.logDiagnostic(
+            'connection_error',
+            {
+              sessionId,
+              failureSource: 'backend_routing',
+              reason: 'WebSocket error event received on client',
+            },
+            'error'
+          );
           reject(error);
         };
 
         this.ws.onclose = () => {
-          console.log('WebSocket disconnected');
+          this.logDiagnostic('connection_closed', {
+            sessionId,
+          }, 'warn');
           this.attemptReconnect();
         };
       } catch (error) {
+        this.logDiagnostic(
+          'connection_setup_failed',
+          {
+            sessionId,
+            failureSource: 'backend_routing',
+            reason: error instanceof Error ? error.message : 'Unknown connection setup error',
+          },
+          'error'
+        );
         reject(error);
       }
     });
@@ -59,7 +139,10 @@ export class WebSocketClient {
     switch (message.type) {
       case 'session_joined':
         useInterviewStore.getState().joinSession();
-        console.log('[WebSocket] Joined session:', message.payload.sessionId);
+        this.logDiagnostic('session_joined', {
+          sessionId: message.payload.sessionId,
+          correlationId: message.correlationId,
+        });
         break;
 
       case 'model_text':
@@ -91,7 +174,11 @@ export class WebSocketClient {
 
       case 'model_interruption':
         // AI was interrupted by user
-        console.log('[WebSocket] AI interrupted:', message.payload.reason);
+        this.logDiagnostic('model_interruption', {
+          sessionId: message.sessionId,
+          correlationId: message.correlationId,
+          reason: message.payload.reason,
+        });
 
         // Stop audio playback and clear queue
         audioPlaybackQueue.stop();
@@ -110,11 +197,25 @@ export class WebSocketClient {
 
       case 'session_update':
         // Handle session status updates
-        console.log('[WebSocket] Session update:', message.payload.status);
+        this.logDiagnostic('session_update', {
+          sessionId: message.sessionId,
+          correlationId: message.correlationId,
+          status: message.payload.status,
+        });
         break;
 
       case 'error':
-        console.error('[WebSocket] Error:', message.payload.message);
+        this.logDiagnostic(
+          'server_error',
+          {
+            sessionId: message.sessionId,
+            correlationId: message.correlationId,
+            failureSource: 'backend_routing',
+            reason: message.payload.message,
+            code: message.payload.code,
+          },
+          'error'
+        );
 
         // Show error in UI
         addFeedback({
@@ -131,7 +232,15 @@ export class WebSocketClient {
         break;
 
       default:
-        console.warn('[WebSocket] Unknown message type:', message.type);
+        this.logDiagnostic(
+          'unknown_message_type',
+          {
+            sessionId: message.sessionId,
+            correlationId: message.correlationId,
+            messageType: message.type,
+          },
+          'warn'
+        );
     }
   }
 
@@ -149,7 +258,16 @@ export class WebSocketClient {
         message: `Successfully executed ${payload.tool}`,
       });
     } catch (error: any) {
-      console.error('[WebSocket] Tool execution failed:', error);
+      this.logDiagnostic(
+        'tool_execution_failed',
+        {
+          tool: payload.tool,
+          toolCallId: payload.toolCallId,
+          failureSource: 'client_payload',
+          reason: error?.message || 'Unknown tool execution error',
+        },
+        'error'
+      );
 
       this.sendToolResponse(payload.toolCallId, {
         success: false,
@@ -164,17 +282,15 @@ export class WebSocketClient {
     const { sessionId } = useInterviewStore.getState();
     if (!sessionId) return;
 
-    this.ws.send(
-      JSON.stringify({
-        type: 'tool_response',
-        payload: {
-          toolCallId,
-          output,
-        },
-        sessionId,
-        timestamp: Date.now(),
-      })
-    );
+    this.send({
+      type: 'tool_response',
+      payload: {
+        toolCallId,
+        output,
+      },
+      sessionId,
+      timestamp: Date.now(),
+    });
   }
 
   private attemptReconnect() {
@@ -185,7 +301,7 @@ export class WebSocketClient {
     this.reconnectTimeout = setTimeout(() => {
       const { sessionId } = useInterviewStore.getState();
       if (sessionId) {
-        console.log('Attempting to reconnect...');
+        this.logDiagnostic('reconnect_attempt', { sessionId }, 'warn');
         this.connect(sessionId, true).catch(console.error);
       }
     }, 3000);
@@ -197,33 +313,35 @@ export class WebSocketClient {
     const { sessionId } = useInterviewStore.getState();
     if (!sessionId) return;
 
-    this.ws.send(
-      JSON.stringify({
-        type: 'code_update',
-        payload: { code, language },
-        sessionId,
-        timestamp: Date.now(),
-      })
-    );
+    this.send({
+      type: 'code_update',
+      payload: { code, language },
+      sessionId,
+      timestamp: Date.now(),
+    });
   }
 
+  /**
+   * Send raw PCM16 audio data using boxing-coach parity format
+   * Uses unified realtime_input message type with audio/pcm mime type
+   * @param base64Audio - Base64-encoded PCM16 audio data
+   */
   sendRawAudio(base64Audio: string) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
     const { sessionId } = useInterviewStore.getState();
     if (!sessionId) return;
 
-    this.ws.send(
-      JSON.stringify({
-        type: 'audio_segment',
-        payload: {
-          audioData: base64Audio,
-          timestamp: Date.now(),
-        },
-        sessionId,
-        timestamp: Date.now(),
-      })
-    );
+    // Boxing-coach parity: Use realtime_input with media.mimeType
+    this.send({
+      type: 'realtime_input',
+      media: {
+        data: base64Audio,
+        mimeType: 'audio/pcm;rate=16000',
+      },
+      sessionId,
+      timestamp: Date.now(),
+    });
   }
 
   sendAudioSegment(transcript: string) {
@@ -232,24 +350,23 @@ export class WebSocketClient {
     const { sessionId } = useInterviewStore.getState();
     if (!sessionId) return;
 
-    this.ws.send(
-      JSON.stringify({
-        type: 'audio_segment',
-        payload: {
-          timestamp: Date.now(),
-          transcript,
-          duration: 0,
-        },
-        sessionId,
+    this.send({
+      type: 'audio_segment',
+      payload: {
         timestamp: Date.now(),
-      })
-    );
+        transcript,
+        duration: 0,
+      },
+      sessionId,
+      timestamp: Date.now(),
+    });
   }
 
   /**
-   * Send screen frame with base64-encoded JPEG image data
+   * Send screen frame with base64-encoded JPEG image data using boxing-coach parity format
+   * Uses unified realtime_input message type with image/jpeg mime type
    * @param imageData - Base64-encoded JPEG image (without data:image/jpeg;base64, prefix)
-   * @param hasCodeChanges - Whether code has changed since last frame
+   * @param hasCodeChanges - Whether code has changed since last frame (tracked for analytics)
    */
   sendScreenFrame(imageData: string, hasCodeChanges: boolean = false) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
@@ -257,18 +374,17 @@ export class WebSocketClient {
     const { sessionId } = useInterviewStore.getState();
     if (!sessionId) return;
 
-    this.ws.send(
-      JSON.stringify({
-        type: 'screen_frame',
-        payload: {
-          imageData,
-          hasCodeChanges,
-          timestamp: Date.now(),
-        },
-        sessionId,
-        timestamp: Date.now(),
-      })
-    );
+    // Boxing-coach parity: Use realtime_input with media.mimeType
+    // Note: hasCodeChanges is tracked separately for metrics but not in the media payload
+    this.send({
+      type: 'realtime_input',
+      media: {
+        data: imageData,
+        mimeType: 'image/jpeg',
+      },
+      sessionId,
+      timestamp: Date.now(),
+    });
   }
 
   requestFeedback(reason: string) {
@@ -277,14 +393,12 @@ export class WebSocketClient {
     const { sessionId } = useInterviewStore.getState();
     if (!sessionId) return;
 
-    this.ws.send(
-      JSON.stringify({
-        type: 'request_feedback',
-        payload: { reason },
-        sessionId,
-        timestamp: Date.now(),
-      })
-    );
+    this.send({
+      type: 'request_feedback',
+      payload: { reason },
+      sessionId,
+      timestamp: Date.now(),
+    });
   }
 
   acknowledgeFeedback(feedbackId: string) {
@@ -293,18 +407,19 @@ export class WebSocketClient {
     const { sessionId } = useInterviewStore.getState();
     if (!sessionId) return;
 
-    this.ws.send(
-      JSON.stringify({
-        type: 'acknowledge_feedback',
-        payload: { feedbackId },
-        sessionId,
-        timestamp: Date.now(),
-      })
-    );
+    this.send({
+      type: 'acknowledge_feedback',
+      payload: { feedbackId },
+      sessionId,
+      timestamp: Date.now(),
+    });
   }
 
   endSession() {
     if (this.ws) {
+      this.logDiagnostic('connection_manual_close', {
+        sessionId: useInterviewStore.getState().sessionId,
+      });
       this.ws.close();
     }
     if (this.reconnectTimeout) {
