@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import { Mic, MicOff, Eye, EyeOff, MessageSquare, AlertCircle, Clock, StopCircle, Monitor, MonitorOff } from 'lucide-react';
+import { Mic, MicOff, Eye, EyeOff, MessageSquare, AlertCircle, Clock, StopCircle, Monitor, MonitorOff, Volume2 } from 'lucide-react';
 import { useInterviewStore } from '../store/interviewStore';
 import { wsClient } from '../services/websocketClient';
 import { NavBar } from '../components/NavBar';
 import { ScreenShareService } from '../services/ScreenShareService';
+import { audioPlaybackQueue } from '../services/AudioPlaybackQueue';
 
 function InterviewRoom() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -16,6 +17,7 @@ function InterviewRoom() {
   const [recognition, setRecognition] = useState<any>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+  const [isAISpeaking, setIsAISpeaking] = useState(false);
   const frameCaptureInterval = useRef<NodeJS.Timeout | null>(null);
 
   const {
@@ -50,6 +52,26 @@ function InterviewRoom() {
       .then(() => console.log('Connected to WebSocket'))
       .catch((err) => console.error('Failed to connect:', err));
 
+    // Setup audio playback callbacks
+    audioPlaybackQueue.onStart(() => {
+      setIsAISpeaking(true);
+    });
+
+    audioPlaybackQueue.onComplete(() => {
+      setIsAISpeaking(false);
+    });
+
+    // Resume audio context on user interaction (required by browsers)
+    const resumeAudio = () => {
+      audioPlaybackQueue.resume().catch(console.error);
+      // Remove listener after first interaction
+      document.removeEventListener('click', resumeAudio);
+      document.removeEventListener('keydown', resumeAudio);
+    };
+
+    document.addEventListener('click', resumeAudio);
+    document.addEventListener('keydown', resumeAudio);
+
     return () => {
       // Cleanup: stop screen sharing and frame capture
       if (frameCaptureInterval.current) {
@@ -59,6 +81,11 @@ function InterviewRoom() {
         screenShareService.current.stop();
       }
       wsClientRef.current.endSession();
+      audioPlaybackQueue.dispose();
+
+      // Remove event listeners
+      document.removeEventListener('click', resumeAudio);
+      document.removeEventListener('keydown', resumeAudio);
     };
   }, [sessionId]);
 
@@ -305,6 +332,16 @@ function InterviewRoom() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* AI Speaking Indicator */}
+            {isAISpeaking && (
+              <div className="bg-blue-900/30 border border-blue-600 rounded-xl p-3 shadow-xl animate-pulse">
+                <div className="flex items-center gap-2">
+                  <Volume2 className="w-5 h-5 text-blue-400" />
+                  <span className="text-blue-200 text-sm font-medium">AI is speaking...</span>
+                </div>
+              </div>
+            )}
+
             {/* Feedback Panel */}
             <div className="bg-gray-800 rounded-xl p-4 shadow-xl">
               <div className="flex items-center gap-2 mb-4">
