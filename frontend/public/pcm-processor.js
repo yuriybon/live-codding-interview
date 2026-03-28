@@ -43,10 +43,9 @@ class PCMProcessor extends AudioWorkletProcessor {
           pcm16[i] = sample < 0 ? sample * 32768 : sample * 32767;
         }
 
-        // Send PCM data back to main thread as Float32Array
-        // (Tests expect Float32Array, we'll convert to Int16 later for actual transmission)
+        // Send PCM data back to main thread as Int16Array
         this.port.postMessage({
-          pcmData: channelData, // Send original Float32 for now
+          pcmData: pcm16,
         });
       }
     }

@@ -167,6 +167,25 @@ export class WebSocketClient {
     );
   }
 
+  sendRawAudio(base64Audio: string) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    const { sessionId } = useInterviewStore.getState();
+    if (!sessionId) return;
+
+    this.ws.send(
+      JSON.stringify({
+        type: 'audio_segment',
+        payload: {
+          audioData: base64Audio,
+          timestamp: Date.now(),
+        },
+        sessionId,
+        timestamp: Date.now(),
+      })
+    );
+  }
+
   sendAudioSegment(transcript: string) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 

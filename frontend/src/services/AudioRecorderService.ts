@@ -23,7 +23,7 @@ export class AudioRecorderService {
   private workletNode: AudioWorkletNode | null = null;
   private recording: boolean = false;
   private config: AudioRecorderConfig;
-  private dataCallback: ((data: Float32Array) => void) | null = null;
+  private dataCallback: ((data: Int16Array) => void) | null = null;
 
   constructor(config: AudioRecorderConfig = {}) {
     this.config = {
@@ -126,7 +126,7 @@ export class AudioRecorderService {
   /**
    * Register callback for PCM data
    */
-  onData(callback: (data: Float32Array) => void): void {
+  onData(callback: (data: Int16Array) => void): void {
     this.dataCallback = callback;
   }
 

@@ -218,7 +218,7 @@ describe('AudioRecorderService - Initialization', () => {
     await recorder.start();
 
     // Simulate PCM data from worklet
-    const pcmData = new Float32Array([0.1, 0.2, 0.3]);
+    const pcmData = new Int16Array([3276, 6553, 9830]);
     if (mockAudioWorkletNode.port.onmessage) {
       mockAudioWorkletNode.port.onmessage({
         data: { pcmData },
@@ -226,7 +226,7 @@ describe('AudioRecorderService - Initialization', () => {
     }
 
     // Assert: Callback should be invoked with PCM data
-    expect(onDataCallback).toHaveBeenCalledWith(expect.any(Float32Array));
+    expect(onDataCallback).toHaveBeenCalledWith(expect.any(Int16Array));
   });
 
   /**
