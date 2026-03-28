@@ -1,0 +1,23 @@
+Dockerfile
+  32b0928c30437010 7-8,10-12,24-25,27-29,45-46,48-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "b394471e68c847583c7f04474787a015443bfc98",
+  "prompts": {
+    "32b0928c30437010": {
+      "agent_id": {
+        "tool": "gemini",
+        "id": "bf28cef5-d768-4bc0-af0d-cf06daf24341",
+        "model": "gemini-3.1-pro-preview"
+      },
+      "human_author": "Yurii Bondar <Yurii_Bondar@genpt.com>",
+      "messages": [],
+      "total_additions": 18,
+      "total_deletions": 9,
+      "accepted_lines": 18,
+      "overriden_lines": 0
+    }
+  }
+}
