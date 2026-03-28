@@ -24,6 +24,7 @@ export class AudioPlaybackQueue {
   private audioContext: AudioContext | null = null;
   private queue: AudioChunk[] = [];
   private isPlaying: boolean = false;
+  private nextStartTime: number = 0;
   private currentSource: AudioBufferSourceNode | null = null;
   private onPlaybackComplete: (() => void) | null = null;
   private onPlaybackStart: (() => void) | null = null;
@@ -93,6 +94,9 @@ export class AudioPlaybackQueue {
   private async playNext(): Promise<void> {
     if (this.queue.length === 0) {
       this.isPlaying = false;
+      if (this.audioContext) {
+        this.nextStartTime = this.audioContext.currentTime;
+      }
       console.log('[AudioPlaybackQueue] Queue empty, playback complete');
       this.onPlaybackComplete?.();
       return;
@@ -135,8 +139,10 @@ export class AudioPlaybackQueue {
         this.onPlaybackStart();
       }
 
-      // Start playback
-      source.start(0);
+      // Compute deterministic start time to keep chunks gap-free.
+      const startTime = Math.max(this.audioContext.currentTime, this.nextStartTime);
+      source.start(startTime);
+      this.nextStartTime = startTime + audioBuffer.duration;
       console.log(`[AudioPlaybackQueue] Playing chunk ${chunk.id}, duration: ${audioBuffer.duration}s`);
     } catch (error) {
       console.error('[AudioPlaybackQueue] Error playing chunk:', error);
@@ -209,6 +215,7 @@ export class AudioPlaybackQueue {
     // Clear queue
     this.queue = [];
     this.isPlaying = false;
+    this.nextStartTime = 0;
   }
 
   /**
