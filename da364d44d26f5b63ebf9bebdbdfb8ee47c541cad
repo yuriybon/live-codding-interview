@@ -1,0 +1,31 @@
+frontend/public/pcm-processor.js
+  e41ec2911ae016dc 46,48
+frontend/src/__tests__/services/AudioRecorderService.test.ts
+  e41ec2911ae016dc 221,229
+frontend/src/pages/InterviewRoom.tsx
+  e41ec2911ae016dc 10,42-54,75-78,100-102,122-124,126-132
+frontend/src/services/AudioRecorderService.ts
+  e41ec2911ae016dc 26,129
+frontend/src/services/websocketClient.ts
+  e41ec2911ae016dc 170-188
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "da364d44d26f5b63ebf9bebdbdfb8ee47c541cad",
+  "prompts": {
+    "e41ec2911ae016dc": {
+      "agent_id": {
+        "tool": "gemini",
+        "id": "3b376078-b74d-462a-8502-9a8245a69d81",
+        "model": "gemini-3.1-pro-preview"
+      },
+      "human_author": "Yurii Bondar <Yurii_Bondar@genpt.com>",
+      "messages": [],
+      "total_additions": 58,
+      "total_deletions": 60,
+      "accepted_lines": 58,
+      "overriden_lines": 0
+    }
+  }
+}
