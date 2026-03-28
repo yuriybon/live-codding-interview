@@ -1,9 +1,10 @@
 ---
 id: TASK-6.3
 title: 'Task 6.1.3: [Test] Dynamic System Prompt Factory'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:41'
+updated_date: '2026-03-28 15:47'
 labels:
   - tdd-test
   - backend
@@ -22,5 +23,5 @@ priority: high
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A test exists verifying that `PromptFactory.generate(config)` returns a specialized System Prompt string based on whether the config is "System Design", "Algorithm", or "Refactoring" along with injecting the chosen `{language}`.
+- [x] #1 A test exists verifying that `PromptFactory.generate(config)` returns a specialized System Prompt string based on whether the config is "System Design", "Algorithm", or "Refactoring" along with injecting the chosen `{language}`.
 <!-- AC:END -->
