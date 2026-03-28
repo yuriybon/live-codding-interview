@@ -1,9 +1,10 @@
 ---
 id: TASK-11.3
 title: 'Task 11.3: [Frontend] Interview room visual refresh from prototype'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-03-28 13:26'
+updated_date: '2026-03-28 15:48'
 labels:
   - frontend
   - ui

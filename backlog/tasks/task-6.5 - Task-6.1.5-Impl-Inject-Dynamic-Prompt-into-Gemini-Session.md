@@ -1,9 +1,10 @@
 ---
 id: TASK-6.5
 title: 'Task 6.1.5: [Impl] Inject Dynamic Prompt into Gemini Session'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-03-28 07:42'
+updated_date: '2026-03-28 15:49'
 labels:
   - backend
   - websocket
