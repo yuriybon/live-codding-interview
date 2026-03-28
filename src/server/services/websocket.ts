@@ -31,7 +31,6 @@ export class WebSocketService {
   private wss: WebSocketServer;
   private clients: Map<WebSocket, ClientData> = new Map();
   private sessions: Map<string, InterviewSession> = new Map();
-  private analysisInterval: NodeJS.Timeout | null = null;
   private feedbackQueue: Map<string, Feedback[]> = new Map();
 
   constructor(port: number) {
@@ -158,9 +157,6 @@ export class WebSocketService {
     }
 
     this.sessions.set(sessionId, session);
-
-    // Start analysis interval for this session
-    this.startSessionAnalysis(sessionId);
 
     // Notify all clients in session
     this.broadcastToSession(sessionId, {
@@ -353,174 +349,13 @@ export class WebSocketService {
         if (remainingClients === 0) {
           session.status = 'completed';
           session.updatedAt = new Date();
-          
-          // Stop analysis
-          this.stopSessionAnalysis(clientData.sessionId);
         }
       }
     }
     this.clients.delete(ws);
   }
 
-  private startSessionAnalysis(sessionId: string) {
-    // Stop existing interval if any
-    if (this.analysisInterval) {
-      clearInterval(this.analysisInterval);
-    }
 
-    // Run analysis every 5 seconds
-    this.analysisInterval = setInterval(async () => {
-      const session = this.sessions.get(sessionId);
-      if (!session || session.status !== 'active') return;
-
-      try {
-        await this.runSessionAnalysis(session);
-      } catch (error) {
-        console.error('Error in session analysis:', error);
-      }
-    }, 5000);
-  }
-
-  private stopSessionAnalysis(sessionId: string) {
-    if (this.analysisInterval) {
-      clearInterval(this.analysisInterval);
-      this.analysisInterval = null;
-    }
-  }
-
-  private async runSessionAnalysis(session: InterviewSession) {
-    const recentTranscript = session.transcriptSegments || [];
-    
-    // Calculate time since last activity
-    const lastActivity = Array.from(this.clients.values())
-      .filter(c => c.sessionId === session.sessionId)
-      .reduce((max, c) => Math.max(max, c.lastActivity), 0);
-    
-    const idleTime = (Date.now() - lastActivity) / 1000;
-
-    // Update stuck time
-    if (idleTime > 5) {
-      session.metrics.stuckTime += 5;
-    }
-
-    // Update total time
-    session.metrics.totalTime = Math.floor(
-      (Date.now() - session.createdAt.getTime()) / 1000
-    );
-
-    // Analyze transcript if there's recent speech
-    if (recentTranscript.length > 0) {
-      const analysis = await vertexAI.analyzeTranscript(
-        recentTranscript,
-        {
-          currentQuestion: session.currentQuestion?.title,
-          sessionDuration: session.metrics.totalTime,
-          codeActivity: session.metrics.codeLinesWritten > 0,
-        }
-      );
-
-      // Check for stuck detection
-      if (analysis.detectedState === 'stuck' && analysis.confidence > 0.7) {
-        this.generateStuckFeedback(session, analysis);
-      }
-
-      // Check for missing signals
-      this.checkForMissingSignals(session, analysis);
-    }
-  }
-
-  private async generateStuckFeedback(session: InterviewSession, analysis: AnalysisResult) {
-    // Avoid spamming feedback
-    const recentFeedback = session.feedback
-      .filter(f => f.trigger.type === 'stuck_detection')
-      .slice(-2);
-
-    if (recentFeedback.length >= 2) {
-      return; // Already provided recent stuck feedback
-    }
-
-    const recentTranscript = session.transcriptSegments
-      ?.slice(-5)
-      .map(t => t.text) || [];
-
-    const feedbackContent = await vertexAI.generateFeedback(
-      {
-        type: 'stuck_detection',
-        details: 'Candidate appears to be stuck',
-      },
-      {
-        transcript: recentTranscript,
-        code: session.codeSnippets?.slice(-1)[0]?.content,
-        metrics: session.metrics,
-      }
-    );
-
-    const feedback: Feedback = {
-      id: uuidv4(),
-      sessionId: session.sessionId,
-      type: 'coach',
-      content: feedbackContent,
-      timestamp: new Date(),
-      trigger: { type: 'stuck_detection', details: analysis.recommendations.join(', ') },
-      acknowledged: false,
-    };
-
-    session.feedback.push(feedback);
-    session.metrics.feedbackCount++;
-
-    this.broadcastToSession(session.sessionId, {
-      type: 'feedback',
-      payload: feedback,
-      sessionId: session.sessionId,
-      timestamp: Date.now(),
-    });
-  }
-
-  private async checkForMissingSignals(session: InterviewSession, analysis: AnalysisResult) {
-    // Check if complexity discussion is missing after significant coding
-    if (
-      !analysis.signals.isDiscussingComplexity &&
-      session.metrics.codeLinesWritten > 10 &&
-      session.metrics.totalTime > 60
-    ) {
-      const recentFeedback = session.feedback.filter(
-        f => f.trigger.details?.includes('complexity')
-      );
-
-      if (recentFeedback.length < 2) {
-        const feedbackContent = await vertexAI.generateFeedback(
-          {
-            type: 'missing_signal',
-            details: 'missing complexity discussion',
-          },
-          {
-            transcript: session.transcriptSegments?.slice(-5).map(t => t.text) || [],
-            metrics: session.metrics,
-          }
-        );
-
-        const feedback: Feedback = {
-          id: uuidv4(),
-          sessionId: session.sessionId,
-          type: 'coach',
-          content: feedbackContent,
-          timestamp: new Date(),
-          trigger: { type: 'missing_signal', details: 'complexity' },
-          acknowledged: false,
-        };
-
-        session.feedback.push(feedback);
-        session.metrics.feedbackCount++;
-
-        this.broadcastToSession(session.sessionId, {
-          type: 'feedback',
-          payload: feedback,
-          sessionId: session.sessionId,
-          timestamp: Date.now(),
-        });
-      }
-    }
-  }
 
   private send(ws: WebSocket, message: WebSocketMessage) {
     if (ws.readyState === WebSocket.OPEN) {
@@ -545,7 +380,6 @@ export class WebSocketService {
     if (session) {
       session.status = 'completed';
       session.updatedAt = new Date();
-      this.stopSessionAnalysis(sessionId);
       return session;
     }
     return null;

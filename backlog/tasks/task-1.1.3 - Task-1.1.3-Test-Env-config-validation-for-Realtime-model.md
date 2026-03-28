@@ -1,10 +1,10 @@
 ---
 id: TASK-1.1.3
 title: 'Task 1.1.3: [Test] Env config validation for Realtime model'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:08'
-updated_date: '2026-03-28 07:20'
+updated_date: '2026-03-28 12:08'
 labels:
   - tdd-test
   - setup
@@ -34,5 +34,5 @@ We are switching from `gemini-1.5-flash` via standard REST to the `gemini-2.0-fl
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A failing test exists asserting that the environment configuration parser (`env.ts`) throws an error if `GEMINI_REALTIME_MODEL` is missing.
+- [x] #1 A failing test exists asserting that the environment configuration parser (`env.ts`) throws an error if `GEMINI_REALTIME_MODEL` is missing.
 <!-- AC:END -->

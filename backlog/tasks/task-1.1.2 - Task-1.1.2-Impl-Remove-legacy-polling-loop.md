@@ -1,10 +1,10 @@
 ---
 id: TASK-1.1.2
 title: 'Task 1.1.2: [Impl] Remove legacy polling loop'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:08'
-updated_date: '2026-03-28 07:20'
+updated_date: '2026-03-28 12:07'
 labels:
   - tdd-impl
   - refactor
@@ -35,5 +35,5 @@ Strip out the legacy `setInterval` state-checking logic from `src/server/service
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `setInterval` and `runSessionAnalysis` methods are completely removed from `src/server/services/websocket.ts`, and the test from 1.1.1 passes.
+- [x] #1 `setInterval` and `runSessionAnalysis` methods are completely removed from `src/server/services/websocket.ts`, and the test from 1.1.1 passes.
 <!-- AC:END -->

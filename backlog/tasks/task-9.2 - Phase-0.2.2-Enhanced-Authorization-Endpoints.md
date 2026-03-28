@@ -1,9 +1,10 @@
 ---
 id: TASK-9.2
 title: 'Phase 0.2.2: Enhanced Authorization Endpoints'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 11:04'
+updated_date: '2026-03-28 12:02'
 labels:
   - auth
   - api

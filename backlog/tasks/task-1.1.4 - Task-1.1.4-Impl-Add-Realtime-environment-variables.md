@@ -1,10 +1,10 @@
 ---
 id: TASK-1.1.4
 title: 'Task 1.1.4: [Impl] Add Realtime environment variables'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:08'
-updated_date: '2026-03-28 07:20'
+updated_date: '2026-03-28 12:10'
 labels:
   - tdd-impl
   - setup
@@ -34,5 +34,5 @@ Update the environment parsing logic to pass the tests from TASK-1.1.3 and updat
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `GEMINI_REALTIME_MODEL` is added to `.env.example` and successfully parsed/validated in `config/env.ts`, causing the test from 1.1.3 to pass.
+- [x] #1 `GEMINI_REALTIME_MODEL` is added to `.env.example` and successfully parsed/validated in `config/env.ts`, causing the test from 1.1.3 to pass.
 <!-- AC:END -->

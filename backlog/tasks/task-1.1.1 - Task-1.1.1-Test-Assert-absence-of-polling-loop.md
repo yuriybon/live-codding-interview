@@ -1,10 +1,10 @@
 ---
 id: TASK-1.1.1
 title: 'Task 1.1.1: [Test] Assert absence of polling loop'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:08'
-updated_date: '2026-03-28 07:20'
+updated_date: '2026-03-28 12:05'
 labels:
   - tdd-test
   - refactor
@@ -35,5 +35,5 @@ The current `WebSocketService` tightly couples the WebSocket transport with an a
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A failing unit test exists asserting that `WebSocketService` does not initiate a `setInterval` loop upon session start.
+- [x] #1 A failing unit test exists asserting that `WebSocketService` does not initiate a `setInterval` loop upon session start.
 <!-- AC:END -->
