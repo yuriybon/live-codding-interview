@@ -1,0 +1,25 @@
+frontend/src/pages/InterviewRoom.tsx
+  e41ec2911ae016dc 4,13,173,208-212,215-226,229-242,244-252,255-258,260-262,265-267,269-270,272,274-277,282,285-288,291,293-330,335-337,340-344,352,354,356,358-359,361-362,367,369,376-380,382-383,385,387-396,398,409-417,419-423,425,427-446,448,452-466
+docs/AI_INTERACTION_FLOW.md
+  e41ec2911ae016dc 3,5,7-87,90,92-95,97-99,101-105,107-111,115-117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "08e377ed37055ba5072844b19536df235c162a75",
+  "prompts": {
+    "e41ec2911ae016dc": {
+      "agent_id": {
+        "tool": "gemini",
+        "id": "3b376078-b74d-462a-8502-9a8245a69d81",
+        "model": "gemini-3.1-pro-preview"
+      },
+      "human_author": "Yurii Bondar <Yurii_Bondar@genpt.com>",
+      "messages": [],
+      "total_additions": 313,
+      "total_deletions": 582,
+      "accepted_lines": 297,
+      "overriden_lines": 0
+    }
+  }
+}
