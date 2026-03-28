@@ -60,19 +60,19 @@ Use `../boxing-coach` as the proven low-latency reference and verify the current
 
 ## Required parity checklist (implementation-ready)
 
-- [ ] Define a single canonical WS schema for join/start, realtime media input, tool response, model output, and interruption.
-- [ ] Align frontend outbound audio/video/text payloads to canonical schema.
-- [ ] Normalize backend Gemini output to stable app event types (audio/text/tool/interrupted/error).
-- [ ] Implement frontend consumers for normalized model events (transcript, audio queue, tool call bridge).
-- [ ] Add end-to-end smoke test proving one complete user-input -> model-response roundtrip.
-- [ ] Add structured diagnostics with session correlation IDs for WS lifecycle and relay errors.
+- [x] Define a single canonical WS schema for join/start, realtime media input, tool response, model output, and interruption. (TASK-12.2)
+- [x] Align frontend outbound audio/video/text payloads to canonical schema. (TASK-13.3)
+- [x] Normalize backend Gemini output to stable app event types (audio/text/tool/interrupted/error). (TASK-12.3, 12.4, 12.5)
+- [x] Implement frontend consumers for normalized model events (transcript, audio queue, tool call bridge). (TASK-12.3, 13.4)
+- [x] Add end-to-end smoke test proving one complete user-input -> model-response roundtrip. (TASK-12.6)
+- [ ] Add structured diagnostics with session correlation IDs for WS lifecycle and relay errors. (TASK-12.7 - in progress)
 
 ## Latency acceptance targets (to prevent regression)
 
-- [ ] Time-to-first-model-audio (TTFA) p95 <= 1500ms in local/dev smoke run.
-- [ ] Audio playback gap between consecutive chunks p95 <= 250ms.
-- [ ] Interruption cutover (user speech detected -> AI playback stop) <= 300ms.
-- [ ] No message contract parsing errors in normal session flow.
+- [x] Time-to-first-model-audio (TTFA) p95 <= 1500ms in local/dev smoke run. (TASK-13.5: p95 = 2ms ✅)
+- [x] Audio playback gap between consecutive chunks p95 <= 250ms. (TASK-13.5: p95 = 135ms ✅)
+- [x] Interruption cutover (user speech detected -> AI playback stop) <= 300ms. (TASK-13.4 + 13.5: p95 = 1ms ✅)
+- [x] No message contract parsing errors in normal session flow. (TASK-13.5: 0 errors ✅)
 
 ## Decision
 Adopt the `boxing-coach` streaming pattern as the parity baseline for low-latency bidirectional voice/video behavior and track execution through dedicated parity tasks.

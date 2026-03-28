@@ -1,9 +1,10 @@
 ---
 id: TASK-13.6
 title: 'Task 13.6: [Docs] Parity sign-off and residual risk register'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-03-28 14:19'
+updated_date: '2026-03-28 16:37'
 labels:
   - documentation
   - parity
