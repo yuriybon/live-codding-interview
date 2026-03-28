@@ -1,0 +1,25 @@
+frontend/src/pages/LandingPage.tsx
+  e41ec2911ae016dc 8,70-73,77-85,88-90,92-99,101-103,105-109,111-120,122-174,178-209,211-215,217-224,226,228-229
+frontend/src/components/SessionConfigModal.tsx
+  e41ec2911ae016dc 3,15-20,22-40,42-43,45-71,74,76-78,81,83,88-92,96-97,102,106-113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "76225f79bca271d7445420a3be35ea1de3a56c6b",
+  "prompts": {
+    "e41ec2911ae016dc": {
+      "agent_id": {
+        "tool": "gemini",
+        "id": "3b376078-b74d-462a-8502-9a8245a69d81",
+        "model": "gemini-3.1-pro-preview"
+      },
+      "human_author": "Yurii Bondar <Yurii_Bondar@genpt.com>",
+      "messages": [],
+      "total_additions": 245,
+      "total_deletions": 137,
+      "accepted_lines": 223,
+      "overriden_lines": 0
+    }
+  }
+}
