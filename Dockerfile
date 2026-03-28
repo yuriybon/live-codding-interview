@@ -4,9 +4,12 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 
-# Install dependencies first for better caching
-COPY frontend/package*.json ./
-RUN npm ci
+# Explicitly use public npm registry to avoid JFrog/Enterprise registry auth issues
+RUN npm config set registry https://registry.npmjs.org/
+
+# Install dependencies using package.json only to bypass private URLs in package-lock.json
+COPY frontend/package.json ./
+RUN npm install
 
 # Copy the rest of the frontend source and build
 COPY frontend/ ./
@@ -18,9 +21,12 @@ RUN npm run build
 FROM node:20-alpine AS backend-builder
 WORKDIR /app
 
-# Install dependencies
-COPY package*.json ./
-RUN npm ci
+# Explicitly use public npm registry
+RUN npm config set registry https://registry.npmjs.org/
+
+# Install dependencies using package.json only
+COPY package.json ./
+RUN npm install
 
 # Copy backend source and compile TypeScript
 COPY tsconfig.json ./
@@ -36,9 +42,12 @@ WORKDIR /app
 # Set Node to run in production mode
 ENV NODE_ENV=production
 
-# Install only production dependencies
-COPY package*.json ./
-RUN npm ci --omit=dev
+# Explicitly use public npm registry
+RUN npm config set registry https://registry.npmjs.org/
+
+# Install only production dependencies using package.json only
+COPY package.json ./
+RUN npm install --omit=dev
 
 # Copy compiled backend
 COPY --from=backend-builder /app/dist ./dist
