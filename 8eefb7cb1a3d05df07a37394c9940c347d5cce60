@@ -1,0 +1,25 @@
+src/server/services/websocket.ts
+  e41ec2911ae016dc 14,71,73,78,98,100-107,110,293-297
+src/server/services/gemini-live.ts
+  e41ec2911ae016dc 52,74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "8eefb7cb1a3d05df07a37394c9940c347d5cce60",
+  "prompts": {
+    "e41ec2911ae016dc": {
+      "agent_id": {
+        "tool": "gemini",
+        "id": "3b376078-b74d-462a-8502-9a8245a69d81",
+        "model": "gemini-3.1-pro-preview"
+      },
+      "human_author": "Yurii Bondar <Yurii_Bondar@genpt.com>",
+      "messages": [],
+      "total_additions": 37,
+      "total_deletions": 20,
+      "accepted_lines": 22,
+      "overriden_lines": 0
+    }
+  }
+}
