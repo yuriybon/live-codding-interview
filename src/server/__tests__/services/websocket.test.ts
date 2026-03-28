@@ -473,3 +473,143 @@ describe('WebSocketService - Upstream Message Routing', () => {
     // without adding business logic (that was removed in Phase 1)
   });
 });
+
+describe('WebSocketService - Gemini Output Normalization', () => {
+  let wsService: WebSocketService;
+  let mockClient: any;
+  const sessionId = 'normalized-session-123';
+  let broadcastSpy: jest.SpyInstance;
+
+  const getBroadcastedMessages = () =>
+    broadcastSpy.mock.calls.map(([, message]) => message);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    const EventEmitter = require('events');
+    mockClient = new EventEmitter();
+    mockClient.readyState = 1;
+    mockClient.send = jest.fn();
+
+    wsService = new WebSocketService(8080);
+    const { GeminiLiveClient } = require('../../services/gemini-live');
+    (wsService as any).geminiClient = new GeminiLiveClient();
+
+    const connectionHandler = (wsService as any).handleConnection.bind(wsService);
+    connectionHandler(mockClient);
+
+    (wsService as any).clients.set(mockClient, {
+      clientId: 'client-normalized-1',
+      sessionId,
+      hasJoinedSession: true,
+      isCandidate: true,
+      lastActivity: Date.now(),
+    });
+
+    const session = (wsService as any).createSession(sessionId);
+    (wsService as any).sessions.set(sessionId, session);
+    (wsService as any).activeGeminiSessionId = sessionId;
+
+    broadcastSpy = jest.spyOn(wsService as any, 'broadcastToSession');
+
+    // Ignore initial "connected" event from handleConnection.
+    mockClient.send.mockClear();
+  });
+
+  afterEach(() => {
+    broadcastSpy.mockRestore();
+    if (wsService) {
+      wsService.close();
+    }
+  });
+
+  it('should normalize Gemini text/audio/tool parts into stable app-level events', () => {
+    const rawGeminiMessage = {
+      serverContent: {
+        modelTurn: {
+          parts: [
+            { text: 'Try using a hash map for faster lookup.' },
+            { inlineData: { mimeType: 'audio/pcm;rate=24000', data: 'pcm-audio-base64' } },
+            {
+              functionCall: {
+                id: 'tool-call-42',
+                name: 'setup_coding_task',
+                args: '{"title":"Two Sum","difficulty":"easy"}',
+              },
+            },
+          ],
+        },
+        turnComplete: true,
+      },
+    };
+
+    (wsService as any).handleGeminiMessage(rawGeminiMessage);
+    const outboundMessages = getBroadcastedMessages();
+
+    const textEvent = outboundMessages.find((m: any) => m.type === 'model_text');
+    const audioEvent = outboundMessages.find((m: any) => m.type === 'model_audio');
+    const toolEvent = outboundMessages.find((m: any) => m.type === 'model_tool_call');
+    const feedbackEvent = outboundMessages.find((m: any) => m.type === 'feedback');
+
+    expect(textEvent).toBeDefined();
+    expect(textEvent.payload.text).toBe('Try using a hash map for faster lookup.');
+    expect(textEvent.payload.isFinal).toBe(true);
+
+    expect(audioEvent).toBeDefined();
+    expect(audioEvent.payload.audioData).toBe('pcm-audio-base64');
+    expect(audioEvent.payload).not.toHaveProperty('inlineData');
+
+    expect(toolEvent).toBeDefined();
+    expect(toolEvent.payload.tool).toBe('setup_coding_task');
+    expect(toolEvent.payload.toolCallId).toBe('tool-call-42');
+    expect(toolEvent.payload.args).toEqual({ title: 'Two Sum', difficulty: 'easy' });
+    expect(toolEvent).not.toHaveProperty('serverContent');
+
+    expect(feedbackEvent).toBeDefined();
+    expect(feedbackEvent.payload.type).toBe('interviewer');
+  });
+
+  it('should normalize Gemini interruption signals to model_interruption', () => {
+    const rawGeminiMessage = {
+      serverContent: {
+        interrupted: true,
+      },
+    };
+
+    (wsService as any).handleGeminiMessage(rawGeminiMessage);
+    const outboundMessages = getBroadcastedMessages();
+
+    expect(outboundMessages).toHaveLength(1);
+    expect(outboundMessages[0].type).toBe('model_interruption');
+    expect(outboundMessages[0].payload).toEqual({ reason: 'user_speech' });
+  });
+
+  it('should sanitize unsupported audio and malformed function args during normalization', () => {
+    const rawGeminiMessage = {
+      serverContent: {
+        modelTurn: {
+          parts: [
+            { inlineData: { mimeType: 'audio/mp3', data: 'should-not-pass' } },
+            {
+              functionCall: {
+                name: 'setup_coding_task',
+                args: 'not-json',
+              },
+            },
+          ],
+        },
+        turnComplete: false,
+      },
+    };
+
+    (wsService as any).handleGeminiMessage(rawGeminiMessage);
+    const outboundMessages = getBroadcastedMessages();
+
+    const audioEvent = outboundMessages.find((m: any) => m.type === 'model_audio');
+    const toolEvent = outboundMessages.find((m: any) => m.type === 'model_tool_call');
+
+    expect(audioEvent).toBeUndefined();
+    expect(toolEvent).toBeDefined();
+    expect(toolEvent.payload.args).toEqual({});
+  });
+});

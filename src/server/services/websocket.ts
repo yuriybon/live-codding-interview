@@ -531,7 +531,7 @@ export class WebSocketService {
 
       // Extract and process model turn parts
       const modelTurn = geminiMessage.serverContent?.modelTurn;
-      if (!modelTurn || !modelTurn.parts || modelTurn.parts.length === 0) {
+      if (!modelTurn || !Array.isArray(modelTurn.parts) || modelTurn.parts.length === 0) {
         return; // No content to process
       }
 
@@ -539,6 +539,10 @@ export class WebSocketService {
 
       // Process each part of the response
       for (const part of modelTurn.parts) {
+        if (!part || typeof part !== 'object') {
+          continue;
+        }
+
         // Handle text content
         if (part.text) {
           const textMessage: ModelTextMessage = {
@@ -561,7 +565,7 @@ export class WebSocketService {
         }
 
         // Handle audio content
-        if (part.inlineData?.mimeType === 'audio/pcm' && part.inlineData.data) {
+        if (this.isPcmAudioMimeType(part.inlineData?.mimeType) && part.inlineData?.data) {
           const audioMessage: ModelAudioMessage = {
             type: 'model_audio',
             payload: {
@@ -577,12 +581,15 @@ export class WebSocketService {
 
         // Handle function calls (tool calls)
         if (part.functionCall) {
+          const toolCallId = this.normalizeToolCallId(part.functionCall.id);
+          const normalizedArgs = this.normalizeFunctionArgs(part.functionCall.args);
+
           const toolCallMessage: ModelToolCallMessage = {
             type: 'model_tool_call',
             payload: {
               tool: part.functionCall.name,
-              args: part.functionCall.args || {},
-              toolCallId: uuidv4(),
+              args: normalizedArgs,
+              toolCallId,
             },
             sessionId,
             timestamp: Date.now(),
@@ -607,6 +614,33 @@ export class WebSocketService {
         });
       }
     }
+  }
+
+  private isPcmAudioMimeType(mimeType: unknown): boolean {
+    return typeof mimeType === 'string' && mimeType.toLowerCase().startsWith('audio/pcm');
+  }
+
+  private normalizeToolCallId(rawId: unknown): string {
+    return typeof rawId === 'string' && rawId.trim().length > 0 ? rawId : uuidv4();
+  }
+
+  private normalizeFunctionArgs(rawArgs: unknown): Record<string, unknown> {
+    if (rawArgs && typeof rawArgs === 'object' && !Array.isArray(rawArgs)) {
+      return rawArgs as Record<string, unknown>;
+    }
+
+    if (typeof rawArgs === 'string') {
+      try {
+        const parsed = JSON.parse(rawArgs);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        // Fall through to empty args
+      }
+    }
+
+    return {};
   }
 
   /**

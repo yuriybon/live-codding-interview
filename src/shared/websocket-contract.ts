@@ -304,8 +304,9 @@ export interface GeminiLiveMessage {
         };
         /** Function call */
         functionCall?: {
+          id?: string;
           name: string;
-          args: Record<string, unknown>;
+          args?: unknown;
         };
       }>;
     };
