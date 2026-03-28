@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import path from 'path';
 import { env } from './config/env';
 import { wsService } from './services/websocket';
 import sessionRoutes from './routes/sessions';
@@ -16,11 +17,14 @@ app.use(cookieParser());
 
 // Request logging 
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    // Avoid logging static assets in production
+    if (!req.path.includes('.')) {
+        console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    }
     next();
 });
 
-// Routes 
+// API Routes 
 app.use('/auth', authRoutes);
 app.use('/api/sessions', sessionRoutes);
 
@@ -43,6 +47,20 @@ app.get('/api/ws-info', (req, res) => {
     });
 });
 
+// Serve frontend static files in production
+if (env.NODE_ENV === 'production') {
+    const frontendPath = path.join(__dirname, '../../frontend/dist');
+    app.use(express.static(frontendPath));
+    
+    // Catch-all route to serve React's index.html for unknown routes (Client-Side Routing)
+    app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api/') || req.path.startsWith('/auth/')) {
+            return next();
+        }
+        res.sendFile(path.join(frontendPath, 'index.html'));
+    });
+}
+
 // Error handling middleware 
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error('Unhandled error:', err);
@@ -52,7 +70,7 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
     });
 });
 
-// 404 handler 
+// 404 handler for APIs
 app.use((req, res) => {
     res.status(404).json({ 
         error: 'Not found', 
