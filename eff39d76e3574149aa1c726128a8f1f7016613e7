@@ -1,0 +1,25 @@
+frontend/src/__tests__/components/InterviewEditor.test.tsx
+  e41ec2911ae016dc 46-51
+frontend/src/pages/InterviewRoom.tsx
+  e41ec2911ae016dc 424
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "eff39d76e3574149aa1c726128a8f1f7016613e7",
+  "prompts": {
+    "e41ec2911ae016dc": {
+      "agent_id": {
+        "tool": "gemini",
+        "id": "3b376078-b74d-462a-8502-9a8245a69d81",
+        "model": "gemini-3.1-pro-preview"
+      },
+      "human_author": "Yurii Bondar <Yurii_Bondar@genpt.com>",
+      "messages": [],
+      "total_additions": 8,
+      "total_deletions": 7,
+      "accepted_lines": 7,
+      "overriden_lines": 0
+    }
+  }
+}
