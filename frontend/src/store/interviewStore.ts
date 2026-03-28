@@ -2,9 +2,10 @@ import { create } from 'zustand';
 
 interface Feedback {
   id: string;
+  sessionId?: string;
   type: 'coach' | 'interviewer' | 'hint' | 'correction';
   content: string;
-  timestamp: string;
+  timestamp: string | Date;
   trigger: {
     type: string;
     details?: string;
