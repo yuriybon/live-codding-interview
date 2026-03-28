@@ -7,14 +7,13 @@ import { wsClient } from '../services/websocketClient';
 import { NavBar } from '../components/NavBar';
 import { ScreenShareService } from '../services/ScreenShareService';
 import { audioPlaybackQueue } from '../services/AudioPlaybackQueue';
+import { AudioRecorderService } from '../services/AudioRecorderService';
 
 function InterviewRoom() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [code, setCode] = useState('// Write your solution here\n\nfunction solution() {\n  // TODO: Implement your solution\n}\n');
-  const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
-  const [recognition, setRecognition] = useState<any>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
@@ -27,7 +26,6 @@ function InterviewRoom() {
     sessionMetrics,
     addFeedback,
     acknowledgeFeedback,
-    addTranscript,
     updateMetrics,
     endSession,
   } = useInterviewStore();
@@ -40,6 +38,19 @@ function InterviewRoom() {
   // Screen share service and preview video element
   const screenShareService = useRef<ScreenShareService>(new ScreenShareService());
   const videoPreviewRef = useRef<HTMLVideoElement>(null);
+
+  // Audio recording service
+  const audioRecorderService = useRef<AudioRecorderService>(new AudioRecorderService({ sampleRate: 16000 }));
+
+  // Helper to convert Int16Array to Base64
+  const int16ToBase64 = (int16Array: Int16Array): string => {
+    const uint8Array = new Uint8Array(int16Array.buffer);
+    let binary = '';
+    for (let i = 0; i < uint8Array.byteLength; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    return window.btoa(binary);
+  };
 
   useEffect(() => {
     if (!sessionId) return;
@@ -61,6 +72,12 @@ function InterviewRoom() {
       setIsAISpeaking(false);
     });
 
+    // Setup raw audio capture callback
+    audioRecorderService.current.onData((pcm16Data) => {
+       const base64Data = int16ToBase64(pcm16Data);
+       wsClientRef.current.sendRawAudio(base64Data);
+    });
+
     // Resume audio context on user interaction (required by browsers)
     const resumeAudio = () => {
       audioPlaybackQueue.resume().catch(console.error);
@@ -79,6 +96,9 @@ function InterviewRoom() {
       }
       if (screenShareService.current.isSharing) {
         screenShareService.current.stop();
+      }
+      if (audioRecorderService.current.isRecording) {
+        audioRecorderService.current.stop();
       }
       wsClientRef.current.endSession();
       audioPlaybackQueue.dispose();
@@ -99,57 +119,17 @@ function InterviewRoom() {
     return () => clearInterval(interval);
   }, []);
 
-  // Initialize speech recognition
-  useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-
-      recognition.onresult = (event: any) => {
-        let finalTranscript = '';
-        let interimTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        if (finalTranscript) {
-          addTranscript(finalTranscript);
-          wsClientRef.current.sendAudioSegment(finalTranscript);
-        }
-
-        setTranscript(interimTranscript);
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        if (isListening) {
-          recognition.start();
-        }
-      };
-
-      setRecognition(recognition);
-    }
-  }, [addTranscript, isListening]);
-
-  const toggleAudio = () => {
-    if (recognition && isListening) {
-      recognition.stop();
+  const toggleAudio = async () => {
+    if (isListening) {
+      await audioRecorderService.current.stop();
       setIsListening(false);
-    } else if (recognition) {
-      recognition.start();
-      setIsListening(true);
+    } else {
+      try {
+        await audioRecorderService.current.start();
+        setIsListening(true);
+      } catch (error) {
+        console.error('Failed to start audio recording:', error);
+      }
     }
   };
 

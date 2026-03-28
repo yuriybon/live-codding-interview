@@ -1,9 +1,10 @@
 ---
 id: TASK-1.3.2
 title: 'Task 1.3.2: [Impl] Raw PCM16 Audio Capture'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-03-28 07:23'
+updated_date: '2026-03-28 14:32'
 labels:
   - tdd-impl
   - frontend
