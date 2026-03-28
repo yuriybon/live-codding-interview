@@ -39,14 +39,15 @@ Successfully implemented boxing-coach parity for interruption handling, achievin
 **Changes Made:**
 
 1. **Backend Gemini Configuration** (`gemini-live.ts:sendSetupMessage`):
-   - Added `realtime_input_config` with interruption handling settings
-   - Configured `activity_handling: 'START_OF_ACTIVITY_INTERRUPTS'` for automatic interruption when user starts speaking
-   - Set `automatic_activity_detection` with sensitivity and timing parameters:
-     - `start_of_speech_sensitivity: 'MEDIUM'`
-     - `end_of_speech_sensitivity: 'MEDIUM'`
-     - `prefix_padding_ms: 300`
-     - `silence_duration_ms: 500`
+   - Added `realtimeInputConfig` with interruption handling settings (camelCase per API spec)
+   - Configured `activityHandling: 'START_OF_ACTIVITY_INTERRUPTS'` for automatic interruption when user starts speaking
+   - Set `automaticActivityDetection` with sensitivity and timing parameters:
+     - `startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH'` (high sensitivity for responsive interruption)
+     - `endOfSpeechSensitivity: 'START_SENSITIVITY_HIGH'` (high sensitivity to detect end of speech)
+     - `prefixPaddingMs: 300` (300ms padding before speech start)
+     - `silenceDurationMs: 500` (500ms silence to detect end of speech)
    - Matches boxing-coach reference pattern from doc-3
+   - **Fix applied**: Corrected field names from snake_case to camelCase and enum values per Gemini Live API spec
 
 2. **Frontend Interruption Handling** (already implemented, verified):
    - `websocketClient.ts:175-185` handles `model_interruption` events
