@@ -24,6 +24,7 @@ interface ClientData {
   clientId: string;
   sessionId: string;
   hasJoinedSession: boolean;
+  hasStartedSession?: boolean;
   isCandidate: boolean;
   lastActivity: number;
 }
@@ -33,6 +34,19 @@ interface WebSocketMessage {
   payload: any;
   sessionId: string;
   timestamp: number;
+}
+
+interface StartSessionConfig {
+  systemInstruction?: string;
+  voiceName?: string;
+  tools?: unknown[];
+}
+
+interface RealtimeInputPayload {
+  media?: {
+    data?: string;
+    mimeType?: string;
+  };
 }
 
 /**
@@ -68,7 +82,7 @@ export class WebSocketService {
     });
   }
 
-  private async setupGeminiClient(session?: InterviewSession) {
+  private async setupGeminiClient(session?: InterviewSession, config?: StartSessionConfig) {
     // Skip setup if geminiClient already exists (e.g., injected for testing)
     if (this.geminiClient && this.geminiClient.isConnected()) {
       return;
@@ -98,8 +112,8 @@ export class WebSocketService {
       }
 
       // Generate dynamic prompt if session config is available
-      let systemInstructionText;
-      if (session && session.language && session.exerciseId) {
+      let systemInstructionText = config?.systemInstruction;
+      if (!systemInstructionText && session && session.language && session.exerciseId) {
         systemInstructionText = PromptFactory.generate({
           language: session.language,
           exerciseId: session.exerciseId
@@ -107,7 +121,11 @@ export class WebSocketService {
       }
 
       // Connect to Gemini Live API
-      await this.geminiClient.connect(systemInstructionText);
+      await this.geminiClient.connect({
+        systemInstructionText,
+        voiceName: config?.voiceName,
+        tools: config?.tools,
+      });
     } catch (error) {
       console.error('[WebSocketService] Failed to connect to Gemini:', error);
       // Continue without Gemini - service can still handle local operations
@@ -225,6 +243,22 @@ export class WebSocketService {
           await this.handleJoinSession(ws, message.payload, clientData);
           break;
 
+        case 'start_session':
+          await this.handleStartSession(
+            ws,
+            (message as any).payload ?? (message as any).config ?? message,
+            clientData
+          );
+          break;
+
+        case 'realtime_input':
+          await this.handleRealtimeInput(
+            ws,
+            (message as any).payload ?? { media: (message as any).media },
+            clientData
+          );
+          break;
+
         case 'audio_segment':
           await this.handleAudioSegment(ws, message.payload, clientData);
           break;
@@ -243,6 +277,14 @@ export class WebSocketService {
 
         case 'acknowledge_feedback':
           this.handleFeedbackAcknowledgement(message.payload, clientData);
+          break;
+
+        case 'tool_response':
+          await this.handleToolResponse(
+            ws,
+            (message as any).payload ?? { toolResponses: (message as any).toolResponses },
+            clientData
+          );
           break;
 
         default:
@@ -285,16 +327,12 @@ export class WebSocketService {
     clientData.sessionId = sessionId;
     clientData.isCandidate = isCandidate;
     clientData.hasJoinedSession = true;
+    clientData.hasStartedSession = false;
 
     // Update session status if candidate joins
     if (isCandidate) {
       session.status = 'active';
       session.updatedAt = new Date();
-
-      // Connect Gemini specifically for this session if it's not connected
-      if (env.NODE_ENV !== 'test' && (!this.geminiClient || !this.geminiClient.isConnected())) {
-         this.setupGeminiClient(session).catch(console.error);
-      }
     }
 
     this.sessions.set(sessionId, session);
@@ -318,6 +356,103 @@ export class WebSocketService {
         currentQuestion: session.currentQuestion,
       },
       sessionId,
+      timestamp: Date.now(),
+    });
+  }
+
+  private async handleStartSession(
+    ws: WebSocket,
+    payload: { config?: StartSessionConfig } | StartSessionConfig,
+    clientData: ClientData
+  ) {
+    const session = this.sessions.get(clientData.sessionId);
+    if (!session) {
+      this.send(ws, {
+        type: 'error',
+        payload: { message: 'Session not found. Join a session first.' },
+        sessionId: clientData.sessionId,
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
+    const config: StartSessionConfig =
+      payload && typeof payload === 'object' && 'config' in payload && payload.config
+        ? payload.config
+        : (payload as StartSessionConfig) || {};
+
+    if (env.NODE_ENV !== 'test') {
+      await this.setupGeminiClient(session, config);
+    }
+
+    clientData.hasStartedSession = true;
+    session.status = 'active';
+    session.updatedAt = new Date();
+
+    this.activeGeminiSessionId = clientData.sessionId;
+
+    this.broadcastToSession(clientData.sessionId, {
+      type: 'session_started',
+      payload: {
+        sessionId: clientData.sessionId,
+        model: env.GEMINI_REALTIME_MODEL,
+        voice: config.voiceName || 'Kore',
+      },
+      sessionId: clientData.sessionId,
+      timestamp: Date.now(),
+    });
+  }
+
+  private async handleRealtimeInput(
+    ws: WebSocket,
+    payload: RealtimeInputPayload,
+    clientData: ClientData
+  ) {
+    const session = this.sessions.get(clientData.sessionId);
+    if (!session || clientData.isCandidate === false) return;
+
+    const media = payload?.media;
+    if (!media || typeof media.data !== 'string' || typeof media.mimeType !== 'string') {
+      this.send(ws, {
+        type: 'error',
+        payload: { message: 'Invalid realtime_input payload: media.data and media.mimeType are required.' },
+        sessionId: clientData.sessionId,
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
+    if (media.mimeType.startsWith('audio/pcm')) {
+      await this.handleAudioSegment(
+        ws,
+        {
+          timestamp: Date.now(),
+          audioData: media.data as unknown as Buffer,
+          duration: 0,
+        },
+        clientData
+      );
+      return;
+    }
+
+    if (media.mimeType.startsWith('image/')) {
+      await this.handleScreenFrame(
+        ws,
+        {
+          timestamp: Date.now(),
+          imageData: media.data as unknown as Buffer,
+          hasCodeChanges: false,
+          activeEditor: 'unknown',
+        },
+        clientData
+      );
+      return;
+    }
+
+    this.send(ws, {
+      type: 'error',
+      payload: { message: `Unsupported realtime_input mimeType: ${media.mimeType}` },
+      sessionId: clientData.sessionId,
       timestamp: Date.now(),
     });
   }
@@ -471,16 +606,56 @@ export class WebSocketService {
     }
   }
 
+  private async handleToolResponse(
+    ws: WebSocket,
+    payload: { toolResponses?: unknown[]; toolCallId?: string; output?: unknown },
+    clientData: ClientData
+  ) {
+    if (!this.geminiClient || !this.geminiClient.isConnected()) {
+      this.send(ws, {
+        type: 'error',
+        payload: { message: 'Model session is not connected.' },
+        sessionId: clientData.sessionId,
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
+    const functionResponses = Array.isArray(payload?.toolResponses)
+      ? payload.toolResponses
+      : this.normalizeSingleToolResponse(payload);
+
+    if (functionResponses.length === 0) {
+      this.send(ws, {
+        type: 'error',
+        payload: { message: 'Invalid tool_response payload.' },
+        sessionId: clientData.sessionId,
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
+    this.activeGeminiSessionId = clientData.sessionId;
+    this.geminiClient.sendToolResponse(functionResponses);
+  }
+
   private handleDisconnect(ws: WebSocket) {
     const clientData = this.clients.get(ws);
     if (clientData) {
       const session = this.sessions.get(clientData.sessionId);
       if (session) {
-        // Check if last client left
-        const remainingClients = this.clients.size - 1;
+        // Check if this is the last client in this session after disconnect
+        const remainingClients = Array.from(this.clients.values()).filter((client) =>
+          client.sessionId === clientData.sessionId && client !== clientData
+        ).length;
         if (remainingClients === 0) {
           session.status = 'completed';
           session.updatedAt = new Date();
+
+          if (this.activeGeminiSessionId === clientData.sessionId && this.geminiClient) {
+            this.geminiClient.disconnect();
+            this.activeGeminiSessionId = null;
+          }
         }
       }
     }
@@ -641,6 +816,21 @@ export class WebSocketService {
     }
 
     return {};
+  }
+
+  private normalizeSingleToolResponse(
+    payload: { toolCallId?: string; output?: unknown } | undefined
+  ): Array<Record<string, unknown>> {
+    if (!payload || typeof payload.toolCallId !== 'string' || payload.toolCallId.trim().length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        id: payload.toolCallId,
+        response: payload.output ?? {},
+      },
+    ];
   }
 
   /**
