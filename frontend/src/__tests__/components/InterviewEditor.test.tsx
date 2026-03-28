@@ -14,7 +14,7 @@ vi.mock('@monaco-editor/react', () => {
   };
 });
 
-import { InterviewRoom } from '../../../src/pages/InterviewRoom';
+import InterviewRoom from '../../../src/pages/InterviewRoom';
 import { wsClient } from '../../../src/services/websocketClient';
 import { useInterviewStore } from '../../../src/store/interviewStore';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -43,11 +43,12 @@ vi.mock('../../../src/services/AudioPlaybackQueue', () => ({
 }));
 vi.mock('../../../src/services/AudioRecorderService', () => {
   return {
-    AudioRecorderService: vi.fn().mockImplementation(() => ({
-      onData: vi.fn(),
-      stop: vi.fn(),
-      isRecording: false
-    }))
+    AudioRecorderService: class {
+      onData = vi.fn();
+      stop = vi.fn();
+      start = vi.fn();
+      isRecording = false;
+    }
   };
 });
 

@@ -421,7 +421,7 @@ function InterviewRoom() {
                 <h2 className="text-lg font-semibold text-white">Your Speech</h2>
               </div>
               <p className="text-gray-400 text-sm italic">
-                {transcript || 'Speak to see your transcript...'}
+                Speak to see your transcript...
               </p>
             </div>
           </div>
